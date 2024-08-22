@@ -1,0 +1,9 @@
+[submodule "Unicycler"]
+	path = Unicycler
+	url = https://github.com/rrwick/Unicycler
+[submodule "HaploDMF"]
+	path = HaploDMF
+	url = https://github.com/dhcai21/HaploDMF.git
+[submodule "Flye"]
+	path = Flye
+	url = https://github.com/mikolmogorov/Flye.git
