@@ -7,3 +7,6 @@
 [submodule "Flye"]
 	path = Flye
 	url = https://github.com/mikolmogorov/Flye.git
+[submodule "NosoGraph_Pipelines"]
+	path = NosoGraph_Pipelines
+	url = https://github.com/STTLab/NosoGraph_Pipelines.git
