@@ -9,4 +9,9 @@
 	url = https://github.com/mikolmogorov/Flye.git
 [submodule "NosoGraph_Pipelines"]
 	path = NosoGraph_Pipelines
-	url = https://github.com/STTLab/NosoGraph_Pipelines.git
+	url = https://github.com/minaminii/NosoGraph_Pipelines.git
+	branch = main
+[submodule "nosograph-frontend"]
+	path = nosograph-frontend
+	url = https://github.com/minaminii/nosograph-frontend.git
+	branch = master
