@@ -1,0 +1,30 @@
+include:
+  - NosoGraph_Pipelines/docker-compose.yaml
+  - nosograph-frontend/docker-compose.yaml
+
+services:
+  strainhub:
+    image: cford38/strainhub:latest
+    ports:
+      - "3838:3838"
+
+  neo4j:
+    image: neo4j:5.25.1
+    restart: always
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j-data:/data
+    environment:
+        - NEO4J_AUTH=neo4j/your_password # will be overidden by NEO4J_AUTH_FILE if used
+        # - NEO4J_AUTH_FILE=/run/secrets/neo4j_auth_file
+    # secrets:
+    #   - neo4j_auth_file
+
+volumes:
+  - neo4j-data
+
+# secrets:
+#   neo4j_auth_file:
+#     file: ./neo4j_auth.txt
