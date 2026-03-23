@@ -1,8 +1,0 @@
-[submodule "NosoGraph_Pipelines"]
-	path = NosoGraph_Pipelines
-	url = git@github.com-NosoGraph_Pipelines:minaminii/NosoGraph_Pipelines.git
-	branch = main
-[submodule "nosograph-frontend"]
-	path = nosograph-frontend
-	url = git@github.com-nosograph-frontend:minaminii/nosograph-frontend.git
-	branch = master
