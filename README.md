@@ -14,7 +14,7 @@ The graph is organized into three interoperable domains, each modeling a differe
 |:--
 | *Figure 1:* An illustration of entities relationship pattern for managing bacterial whole genome sequencing data and all relevant information by NosoGraph. A directed arrow indicates a one-way relationship between entities, while an undirected line indicates bi-directional relationships.
 
-1) Clinical terminology 
+1) Clinical terminology
 This layer represents standardized clinical concepts using SNOMED CT, including disorders, clinical findings, situations, and morphologic abnormalities.
 SNOMED provide a controlled vocabulary for patient conditions, enabling consistent representation, disease grouping, and provide point of reference to external clinical data.
 
@@ -47,13 +47,14 @@ We recommend using Neo4j as the platform offers an intuitive desktop interface, 
 #### 1. Install Neo4j Desktop
 
 Download and install Neo4j Desktop from:
-https://neo4j.com/download/
+
+[https://neo4j.com/download/](https://neo4j.com/download/)
 
 Follow instructions to download, install, and launch the application.
 
 #### 2. Create a New Database
 
-1. Choose "Local instances" on the sidebar menu 
+1. Choose "Local instances" on the sidebar menu
 2. Click "Create instance"
 3. Fill instance details according to instructions.
 4. Set a database name (e.g., nosograph-db)
