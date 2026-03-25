@@ -78,3 +78,11 @@ From Query menu after connected to an instance you may use Neo4j Browser to:
 - Visualize relationships interactively
 - Expand nodes (double-click)
 - Run example queries from this repository
+
+## Acknowledgement
+
+This work was supported by the following funding bodies:
+
+- The Fundamental Fund 2025, Chiang Mai University, Chaing Mai, Thailand (Grant number: 214458).
+- The Faculty of Medicine Research Fund, Chiang Mai University (Grant No. 099-2563)
+- Support the Children Foundation, Chiang Mai, Thailand.
