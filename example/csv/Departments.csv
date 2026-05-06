@@ -1,0 +1,7 @@
+department_id,name,description
+D01,Cardiology,Heart-related care
+D02,Neurology,Brain and nervous system
+D03,Surgery,General and specialized surgical services
+D04,Pediatrics,Child healthcare services
+D05,Emergency,Acute and urgent care
+D06,Oncology,Cancer diagnosis and treatment

@@ -49,12 +49,25 @@ Defines the high-level organizational units within the hospital.
 
 Defines physical wards within departments. Each ward typically belongs to a department.
 
-| Property      | Type    | Required | Description                          | Example       |
-| ------------- | ------- | -------- | ------------------------------------ | -------       |
-| ward_id       | String  | ☑        | Unique identifier for the ward       | W05           |
-| name          | String  | ☑        | Ward name                            | Male Surgical |
-| department_id | String  | ☑        | Reference to the department          | D03           |
-| description   | String  | ☐        | Optional description of the ward     | general ward  |
+| Property      | Type   | Required | Description                                                              | Example                     |
+| ------------- | ------ | -------- | ------------------------------------------------------------------------ | --------------------------- |
+| ward_id       | String | ☑        | Unique identifier for the ward                                           | W05                         |
+| department_id | String | ☑        | Reference to the department                                              | D03                         |
+| name          | String | ☑        | Ward name                                                                | Male Surgical               |
+| ward_type     | String | ☐        | Category of care level or function of the ward (e.g., General, ICU, CCU) | General                     |
+| description   | String | ☐        | Optional description of the ward                                         | General post-operative ward |
+
+### Antibiotic.csv
+
+Defines standardized antibiotic medications that can later be referenced in lab result or treatment records.
+
+| Property      | Type   | Required | Description                          | Example                     |
+| ------------- | ------ | -------- | ------------------------------------ | --------------------------- |
+| antibiotic_id | String | ☑        | Unique identifier for the antibiotic | A001                        |
+| name          | String | ☑        | Generic name of the antibiotic       | Amoxicillin                 |
+| abbreviation  | String | ☐        | Common short form or abbreviation    | AMX                         |
+| class         | String | ☑        | Antibiotic class                     | Penicillin                  |
+| description   | String | ☐        | Additional notes                     | Treats bacterial infections |
 
 ## Patient metadata
 

@@ -1,0 +1,13 @@
+antibiotic_id,name,abbreviation,class,description
+A001,Piperacillin/Tazobactam,TZ,Penicillin combination,Broad-spectrum beta-lactam with beta-lactamase inhibitor
+A002,Cefazolin,CZ,Cephalosporin (1st gen),Used for surgical prophylaxis and gram-positive infections
+A003,Cefotaxime,TX,Cephalosporin (3rd gen),Broad-spectrum cephalosporin for serious infections
+A004,Cefepime,FEP,Cephalosporin (4th gen),Extended-spectrum coverage including Pseudomonas
+A005,Imipenem,IP,Carbapenem,Broad-spectrum carbapenem antibiotic
+A006,Meropenem,ME,Carbapenem,Broad-spectrum carbapenem with strong gram-negative coverage
+A007,Amikacin,AN,Aminoglycoside,Used for severe gram-negative infections
+A008,Ciprofloxacin,CI,Fluoroquinolone,Broad-spectrum antibiotic with good oral bioavailability
+A009,Levofloxacin,LX,Fluoroquinolone,Respiratory fluoroquinolone
+A010,Ceftriaxone,CX,Cephalosporin (3rd gen),Widely used for community-acquired infections
+A011,Gentamicin,G,Aminoglycoside,Used for serious infections including sepsis
+A012,Trimethoprim/Sulfamethoxazole,ST,Sulfonamide combination,Used for urinary and opportunistic infections

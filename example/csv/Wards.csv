@@ -1,0 +1,13 @@
+ward_id,name,department_id,ward_type,description
+W01,Cardiac ICU,D01,ICU,Intensive care for cardiac patients
+W02,General Cardiology,D01,General,Non-critical cardiac care
+W03,Neuro ICU,D02,ICU,Intensive neurological care
+W04,Stroke Unit,D02,Specialized,Specialized stroke care
+W05,Male Surgical,D03,General,Post-operative male patients
+W06,Female Surgical,D03,General,Post-operative female patients
+W07,Pediatric Ward,D04,General,General pediatric care
+W08,Neonatal ICU,D04,ICU,Newborn intensive care
+W09,Emergency Ward,D05,General,Initial patient stabilization
+W10,Oncology Ward,D06,Specialized,Cancer treatment and monitoring
+W11,Cardiac Care Unit,D01,CCU,Intermediate cardiac monitoring
+W12,Isolation Ward,D05,Isolation,Infectious disease isolation
