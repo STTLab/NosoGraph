@@ -1,5 +1,12 @@
 import logging
 from neo4j import GraphDatabase, Driver
+from nosograph_neo4j_txs import _create_assembly_event, _associate_contigs
+from custom_types import (
+    AssemblyProps,
+    ContigProps,
+    NodeCreateOrMatchStats,
+    NodeAndRelationshipCreationStats
+)
 
 class NosoGraph(GraphDatabase):
     def __init__(self, database_uri, username, password):
@@ -40,6 +47,34 @@ class NosoGraph(GraphDatabase):
         self._logger.info("Closing driver")
         self._driver.close()
 
+    def add_assembly(
+        self,
+        **assembly_data: AssemblyProps
+    ) -> NodeCreateOrMatchStats:
+        with self._driver.session() as session:
+            stats = session.execute_write(
+                _create_assembly_event,
+                assembly_id=assembly_data.get('assembly_id'),
+                assembler=assembly_data.get('assembler'),
+                created_at=assembly_data.get('created_at')
+            )
+            self._logger.info(stats)
+            return stats
+
+    def add_contigs(
+        self,
+        assembly_id: str,
+        contigs: list[ContigProps]
+    ) -> NodeAndRelationshipCreationStats:
+        with self._driver.session() as session:
+            stats = session.execute_write(
+                _associate_contigs,
+                assembly_id,
+                contigs
+            )
+            self._logger.info(stats)
+            return stats
+
 if __name__ == '__main__':
 
     logging.basicConfig(
@@ -48,5 +83,16 @@ if __name__ == '__main__':
     )
 
     URI='neo4j://localhost:7687'
-    with NosoGraph(URI, 'neo4j', 'neo4j') as conn:
-        pass
+    with NosoGraph(URI, 'neo4j', 'minamini114') as conn:
+        conn.add_assembly(
+            assembly_id='test_assembly'
+        )
+        conn.add_contigs('test_assembly', [
+            {
+                'contig_id': '1',
+                'length': 4,
+                'sequence': 'ATCG',
+                'hash_algorithm': 'md5',
+                'hash': ''
+            }
+        ])

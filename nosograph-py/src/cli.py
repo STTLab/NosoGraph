@@ -228,8 +228,6 @@ class NosoGraphCLI():
         print('Path to Long reads FASTQ (gzipped or not)')
         input_fastq = prompt('> ', completer=PathCompleter())
 
-        
-
 if __name__ == '__main__':
     cli = NosoGraphCLI()
     cli.main_menu()
