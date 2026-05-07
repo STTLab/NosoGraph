@@ -1,4 +1,6 @@
-id,firstname,lastname,sex,date_of_birth
+patient_id,firstname,lastname,sex,date_of_birth
 P001,John,Doe,M,1985-06-15
-P002,Clare,Doe,F,2021-03-22
-P003,Alex,Smith,Other,1990-11-05
+P002,Jane,Smith,F,1990-09-22
+P003,Michael,Brown,M,1978-03-11
+P004,Sarah,Wilson,F,2001-12-05
+P005,Alex,Taylor,Other,1995-07-30
