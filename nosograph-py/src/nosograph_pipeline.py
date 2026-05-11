@@ -1,20 +1,22 @@
 from __future__ import annotations
-
+import os
 import logging
 import subprocess
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Literal, TypedDict
 
+VALID_ASSEMBLERS = {"canu", "flye"}
+VALID_TECHNOLOGIES = {"pacbio", "nanopore"}
+
+GREEN = '\033[92m'
+RED = '\033[91m'
+RESET = '\033[0m'
 
 class NosoGraphPipelineError(Exception):
     """Custom exception for pipeline failures."""
     pass
 
 class NosoGraphPipeline:
-
-    VALID_ASSEMBLERS = {"canu", "flye"}
-    VALID_TECHNOLOGIES = {"pacbio", "nanopore"}
-
     def __init__(
         self,
         script_path: str,
@@ -28,6 +30,7 @@ class NosoGraphPipeline:
         threads: int = 1,
         racon_iter: int = 0,
         pilon_iter: int = 0,
+        detach_shell: bool = False
     ) -> None:
 
         self._logger = logging.getLogger(self.__class__.__name__)
@@ -49,6 +52,8 @@ class NosoGraphPipeline:
         self.racon_iter = racon_iter
         self.pilon_iter = pilon_iter
 
+        self.detach_shell = detach_shell
+
         self._validate()
 
     def _validate(self) -> None:
@@ -56,20 +61,23 @@ class NosoGraphPipeline:
             raise FileNotFoundError(
                 f"Pipeline script not found: {self.script_path}"
             )
-        if self.assembler not in self.VALID_ASSEMBLERS:
+        if self.assembler not in VALID_ASSEMBLERS:
             raise ValueError(
                 f"Invalid assembler '{self.assembler}'. "
-                f"Choose from {self.VALID_ASSEMBLERS}"
+                f"Choose from {VALID_ASSEMBLERS}"
             )
-        if self.technology not in self.VALID_TECHNOLOGIES:
+        if self.technology not in VALID_TECHNOLOGIES:
             raise ValueError(
                 f"Invalid technology '{self.technology}'. "
-                f"Choose from {self.VALID_TECHNOLOGIES}"
+                f"Choose from {VALID_TECHNOLOGIES}"
             )
         if self.assembler == "canu" and not self.genome_size:
             raise ValueError(
                 "genome_size is required when assembler='canu'"
             )
+        
+    def get_output(self):
+        return NosoGraphPipelineOutput(self.assembler, self.outdir)
 
     def build_command(self) -> List[str]:
         cmd = [
@@ -156,3 +164,67 @@ class NosoGraphPipeline:
         except Exception as e:
             self._logger.exception("Unexpected pipeline error")
             raise NosoGraphPipelineError(str(e)) from e
+
+class NosoGraphPipelineOutputFiles(TypedDict):
+    assembly_file: os.PathLike
+    polished_assembly_file: os.PathLike
+
+class NosoGraphPipelineOutput():
+
+    ASSEMBLY_OUTPUT_DIR = '01_assembly'
+    POLISH_OUTPUT_DIR = '02_polish'
+
+
+    def __init__(self, assembler:Literal['canu', 'flye'] , outdir: os.PathLike):
+        self.assembler = assembler
+        self.outdir = outdir
+        self._logger = logging.getLogger(self.__class__.__name__)
+
+    def check_output_directory(self) -> bool:
+        '''
+        Return `True` if outdir top directory tree is as expected.
+        '''
+        expecting = {
+            f'{self.outdir}/{self.ASSEMBLY_OUTPUT_DIR}',
+            f'{self.outdir}/{self.POLISH_OUTPUT_DIR}'
+        }
+        checked = []
+        for expect in expecting:
+            dir_exists = os.path.isdir(expect)
+            
+            self._logger.info(f'{expect:_<30}: {GREEN if dir_exists else RED+"Not "}Found{RESET}')
+            checked.append(dir_exists) 
+        return all([os.path.isdir(expect) ])
+
+    def check_output_files(self) -> bool:
+        '''
+        Return `True` if all expected output files are accounted for.
+        '''
+        match self.assembler:
+            case 'canu':
+                # TODO: Implement output check for canu assembler.
+                raise NotImplementedError()
+            case 'flye':
+                expecting = {
+                    'assembly.contigs.fasta',
+                    'assembly_graph.gfa',
+                    'assembly_graph.gv',
+                    'assembly_info.txt',
+                    'flye.log',
+                    'params.json'
+                }
+                checked = []
+                for expect in expecting:
+                    file_is_exists = os.path.isfile(expect)
+                    self._logger.info(f'{expect:.<30}: {GREEN if file_is_exists else RED+"Not "}Found{RESET}')
+                    checked.append(file_is_exists) 
+                return all(checked)
+                
+if __name__ == '__main__':
+    logging.basicConfig(
+        level='INFO',
+        format="%(asctime)s [%(levelname)s] [%(name)s] %(message)s"
+    )
+    x = NosoGraphPipeline('./eukaryote_assembly.sh','a', 'a', 'a', 'flye', 'nanopore', 'cwd')
+    x.get_output().check_output_directory()
+    x.get_output().check_output_files()
