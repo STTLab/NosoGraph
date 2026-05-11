@@ -1,6 +1,6 @@
 import logging
 from neo4j import GraphDatabase, Driver
-from nosograph_neo4j_txs import _create_assembly_event, _associate_contigs
+from nosograph_neo4j_txs import _create_assembly_run, _associate_contigs
 from custom_types import (
     AssemblyProps,
     ContigProps,

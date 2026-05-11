@@ -1,3 +1,5 @@
+import dotenv
+import os
 from time import sleep
 from datetime import datetime
 from prompt_toolkit import prompt
@@ -5,9 +7,10 @@ from prompt_toolkit.completion import PathCompleter
 import nosograph_neo4j_txs as txs
 from nosograph_neo4j import NosoGraph
 
-NEO4J_URI = 'neo4j://localhost:7687'
-NEO4J_USERNAME = 'neo4j'
-NEO4J_PASSWORD = 'minamini114'
+dotenv.load_dotenv('.env')
+NEO4J_URI = os.environ.get('NEO4J_URI')
+NEO4J_USERNAME = os.environ.get('NEO4J_USERNAME')
+NEO4J_PASSWORD = os.environ.get('NEO4J_PASSWORD')
 
 class NosoGraphCLI():
     def __init__(self):
