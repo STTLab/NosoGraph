@@ -6,11 +6,14 @@ from prompt_toolkit import prompt
 from prompt_toolkit.completion import PathCompleter
 import nosograph_neo4j_txs as txs
 from nosograph_neo4j import NosoGraph
+from custom_types import Neo4JAuth
 
 dotenv.load_dotenv('.env')
-NEO4J_URI = os.environ.get('NEO4J_URI')
-NEO4J_USERNAME = os.environ.get('NEO4J_USERNAME')
-NEO4J_PASSWORD = os.environ.get('NEO4J_PASSWORD')
+NEO4J_URI = os.environ.get(
+    'NEO4J_URI',
+    f'neo4j://{os.environ.get('NEO4J_HOST', 'localhost')}:{os.environ.get('NEO4J_BOLT_PORT', '7687')}'
+)
+NEO4J_AUTH = Neo4JAuth.from_string(os.environ.get('NEO4J_AUTH', None))
 
 class NosoGraphCLI():
     def __init__(self):
@@ -20,7 +23,7 @@ class NosoGraphCLI():
             2: 'F',
             3: None
         }
-        self.neo4j_conn = NosoGraph(NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
+        self.neo4j_conn = NosoGraph(NEO4J_URI, NEO4J_AUTH)
         self.neo4j_conn.verify()
 
     def _ui_element_hbar(self, char: str = '-', width: int|None = None):

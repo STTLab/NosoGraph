@@ -2,6 +2,7 @@ import logging
 from neo4j import GraphDatabase, Driver
 from nosograph_neo4j_txs import _create_assembly_run, _associate_contigs
 from custom_types import (
+    Neo4JAuth,
     AssemblyProps,
     ContigProps,
     NodeCreateOrMatchStats,
@@ -9,13 +10,13 @@ from custom_types import (
 )
 
 class NosoGraph(GraphDatabase):
-    def __init__(self, database_uri, username, password):
+    def __init__(self, database_uri, auth: Neo4JAuth|None=None):
         self._logger = logging.getLogger(self.__class__.__name__)
         self._logger.info("Initializing NosoGraph")
 
         self._driver = super().driver(
             uri=database_uri, 
-            auth=(username, password)
+            auth=None if not auth else auth
         )
 
     def __enter__(self):
