@@ -53,7 +53,7 @@ class NosoGraph(GraphDatabase):
     ) -> NodeCreateOrMatchStats:
         with self._driver.session() as session:
             stats = session.execute_write(
-                _create_assembly_event,
+                _create_assembly_run,
                 assembly_id=assembly_data.get('assembly_id'),
                 assembler=assembly_data.get('assembler'),
                 created_at=assembly_data.get('created_at')
