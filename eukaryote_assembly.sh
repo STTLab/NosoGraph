@@ -31,16 +31,6 @@ usage() {
     echo "  -t|--threads <threads>              Number of threads (default: 1)"
     echo "  --racon-iter <N>                    Racon polishing iterations (default: 0)"
     echo "  --pilon-iter <N>                    Pilon polishing iterations (default: 0)"
-    # echo "  --wtdbg2-preset <preset(s)>         Presets for wtdbg2 (comma-separated)"
-    # --wtdbg2-preset: Preset for wtdbg2, comma seperable i.e. `ont,preset2` for ont reads and expected genome size <1G`
-    #       preset1/rsII/rs: -p 21 -S 4 -s 0.05 -L 5000
-    #       preset2: -p 0 -k 15 -AS 2 -s 0.05 -L 5000
-    #       preset3: -p 19 -AS 2 -s 0.05 -L 5000
-    #       sequel/sq
-    #       nanopore/ont:
-    #           (genome size < 1G: preset2) -p 0 -k 15 -AS 2 -s 0.05 -L 5000
-    #           (genome size >= 1G: preset3) -p 19 -AS 2 -s 0.05 -L 5000
-    #       preset4/corrected/ccs: -p 21 -k 0 -AS 4 -K 0.05 -s 0.5
     exit 1
 }
 
