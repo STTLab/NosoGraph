@@ -1,9 +1,23 @@
 services:
   neo4j:
-    image: neo4j:2026.04.0-community-trixie
+    # image: neo4j:latest # For latest community edition
+    image: neo4j:enterprise # For latest enterprise edtion
     container_name: nosograph_neo4j
 
     restart: unless-stopped
+
+    healthcheck:
+      test: [ 
+        "CMD",
+        "/var/lib/neo4j/bin/cypher-shell",
+        "-u", "${NEO4J_USERNAME}",
+        "-p", "${NEO4J_PASSWORD}",
+        "--access-mode", "read", "--non-interactive",
+        "MATCH () RETURN count(*) as count"
+      ]
+      interval: 10s
+      timeout: 10s
+      retries: 20
 
     ports:
       - "${NEO4J_HTTP_PORT:-7474}:7474"
@@ -13,19 +27,23 @@ services:
       - neo4j-data:/data
 
     environment:
+      - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
       # Authentication
       - NEO4J_AUTH=${NEO4J_AUTH:-none}
 
       # Allow file import/export
       - NEO4J_server_directories_import=/import
 
+      # Optional: Plugins
+      - NEO4J_PLUGINS='["graph-data-science"]'
+
       # Optional: APOC support
-      # - NEO4JLABS_PLUGINS=["apoc"]
-      # - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - NEO4JLABS_PLUGINS=["apoc"]
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
 
       # Optional: configure memory
-      # - NEO4J_server_memory_heap_initial__size=1G
-      # - NEO4J_server_memory_heap_max__size=1G
+      - NEO4J_server_memory_heap_initial__size=1G
+      - NEO4J_server_memory_heap_max__size=4G
 
 volumes:
   neo4j-data:
