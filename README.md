@@ -35,123 +35,114 @@ cd NosoGraph
 
 ### NosoGraph pipeline
 
-The NosoGraph sequencing pipeline is separated from the graph database schema and can be executed independently using `nosograph_pipeline.sh`.
+The NosoGraph sequencing pipeline supports hybrid and long-read bacterial genome assembly (Flye, Canu), iterative polishing (Racon, Pilon), and quality assessment (CheckM2). It is implemented in [Nextflow](https://www.nextflow.io/) DSL2, which manages Conda environments automatically and supports execution on local machines and HPC clusters (SLURM).
 
-The pipeline supports hybrid and long-read bacterial genome assembly workflows and downstream polishing steps.
+#### Requirements
 
+- [Nextflow](https://www.nextflow.io/docs/latest/install.html) ≥ 23.04
+- [Conda](https://docs.conda.io/) or [Micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html)
 
-> [!INFO]
-> The pipeline uses Conda environments for dependency management.
-> We recommend using Micromamba, a lightweight and fast Conda-compatible package manager.
->
-> You may skip this part if you already have Conda installed.
-
-#### Install Micromamba
-
-For Linux install with:
+Install Nextflow:
 
 ```bash
-"${SHELL}" <(curl -L micro.mamba.pm/install.sh)
+curl -s https://get.nextflow.io | bash
+mv nextflow ~/bin/
 ```
 
-On macOS, you can install micromamba from Homebrew:
-
-```bash
-brew install micromamba
-```
-
-After installation, restart your shell or initialize Micromamba:
-
-```bash
-source ~/.bashrc
-```
-
-Verify installation:
-
-```bash
-micromamba --version
-```
-
-For additional installation options, see the official [Micromamba documentation](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html)
-
----
-
-### Create the pipeline environment
-
-Environment configuration files are provided in the `conda/` directory.
-
-Available environments:
+Conda environments are defined in the `conda/` directory and are created automatically by Nextflow on first run — no manual setup required.
 
 | Environment file | Purpose |
 |---|---|
-| `conda/assemblers.yaml` | Genome assembly tools (e.g. Flye, Canu) |
+| `conda/assemblers.yaml` | Assembly and polishing tools (Flye, Canu, Racon, Pilon, BWA-mem2, SAMtools) |
+| `conda/qc_tools.yaml` | Quality-control tools (CheckM2, FastQC, MultiQC) |
 | `conda/blast.yaml` | BLAST and sequence comparison tools |
-| `conda/medaka.yaml` | Medaka polishing environment |
-| `conda/qc_tools.yaml` | Quality-control and preprocessing tools |
-
-Create environments using Micromamba:
-
-```bash
-micromamba create -f conda/assemblers.yaml
-micromamba create -f conda/blast.yaml
-micromamba create -f conda/medaka.yaml
-micromamba create -f conda/qc_tools.yaml
-```
-
-An environment will be selected automatically within the pipeine script.
+| `conda/medaka.yaml` | Medaka neural-network polishing |
 
 ---
 
-#### Pipeline usage
+#### Pipeline parameters
 
-```bash
-bash nosograph_pipeline.sh [options]
-```
-
-##### Options
-
-|        Option                |                      Description
-|------------------------------|---------------------------------------------------------
-| `-l <long reads file>`       | Long-read FASTQ file (gzipped or uncompressed)
-| `-1 <short read R1>`         | Paired-end short reads R1
-| `-2 <short read R2>`         | Paired-end short reads R2
-| `-asm <assembler>`           | Assembler (`canu` or `flye`)
-| `-tech <technology>`         | Sequencing technology (`pacbio` or `nanopore`)
-| `-g`, `--genome-size <size>` | Genome size (e.g. `5m`, `2.6g`) — not required for Flye
-| `-o`, `--outdir <directory>` | Output directory
-| `-t`, `--threads <N>`        | Number of threads (default: `1`)
-| `--racon-iter <N>`           | Number of Racon polishing iterations
-| `--pilon-iter <N>`           | Number of Pilon polishing iterations
+| Parameter | Description | Default |
+|---|---|---|
+| `--long_reads` | Long-read FASTQ (gzipped or uncompressed) | required |
+| `--read1` | Paired-end short reads R1 (required for Pilon) | — |
+| `--read2` | Paired-end short reads R2 (required for Pilon) | — |
+| `--assembler` | Assembler: `canu` or `flye` | required |
+| `--tech` | Sequencing technology: `nanopore`, `nanopore-hq`, or `pacbio` | required |
+| `--genome_size` | Genome size (e.g. `5m`, `2.6g`) — required for Canu | — |
+| `--outdir` | Output directory | `results` |
+| `--threads` | Threads per process | `1` |
+| `--racon_iter` | Racon polishing iterations | `1` |
+| `--pilon_iter` | Pilon polishing iterations | `1` |
+| `--checkm2_db` | Path to CheckM2 database (`uniref100.KO.1.dmnd`) | — |
+| `--queue` | SLURM partition name (`-profile slurm` only) | — |
 
 ---
 
-##### Example
+#### Running locally
 
-Hybrid assembly using Flye:
+Hybrid assembly with Flye:
 
 ```bash
-bash nosograph_pipeline.sh \
-    -l reads.fastq.gz \
-    -1 sample_R1.fastq.gz \
-    -2 sample_R2.fastq.gz \
-    -asm flye \
-    -tech nanopore \
-    -o results \
-    -t 16 \
-    --racon-iter 2 \
-    --pilon-iter 2
+nextflow run main.nf \
+    --long_reads reads.fastq.gz \
+    --read1 sample_R1.fastq.gz \
+    --read2 sample_R2.fastq.gz \
+    --assembler flye \
+    --tech nanopore \
+    --outdir results \
+    --threads 16 \
+    --racon_iter 2 \
+    --pilon_iter 2 \
+    --checkm2_db /path/to/uniref100.KO.1.dmnd
 ```
 
-Long-read-only assembly using Canu:
+Long-read-only assembly with Canu:
 
 ```bash
-bash nosograph_pipeline.sh \
-    -l pacbio_reads.fastq.gz \
-    -asm canu \
-    -tech pacbio \
-    -g 5m \
-    -o canu_output \
-    -t 32
+nextflow run main.nf \
+    --long_reads pacbio_reads.fastq.gz \
+    --assembler canu \
+    --tech pacbio \
+    --genome_size 5m \
+    --outdir results \
+    --threads 32
+```
+
+---
+
+#### Running on SLURM
+
+Add `-profile slurm` to submit each process as an independent SLURM job. Specify your partition with `--queue`:
+
+```bash
+nextflow run main.nf \
+    -profile slurm \
+    --queue normal \
+    --long_reads reads.fastq.gz \
+    --assembler flye \
+    --tech nanopore \
+    --outdir results \
+    --threads 16 \
+    --racon_iter 2 \
+    --pilon_iter 1 \
+    --checkm2_db /path/to/uniref100.KO.1.dmnd
+```
+
+Default resource allocations per process label (adjustable in `nextflow.config`):
+
+| Process | CPUs | Memory | Time |
+|---|---|---|---|
+| Assembly (Flye) | `--threads` | 32 GB | 24 h |
+| Assembly (Canu) | `--threads` | 32 GB | 5 d |
+| Racon iteration | `--threads` | 32 GB | 24 h |
+| Pilon iteration | `--threads` | 28 GB | 12 h |
+| CheckM2 | `--threads` | 32 GB | 12 h |
+
+To resume a run after a failure:
+
+```bash
+nextflow run main.nf -profile slurm -resume ...
 ```
 
 ### NosoGraph knowledge graph

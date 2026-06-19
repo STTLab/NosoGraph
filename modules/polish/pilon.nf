@@ -1,6 +1,5 @@
 process PILON_ITER {
     label 'assemblers'
-    memory '28 GB'
     publishDir "${params.outdir}/02_polish/02_pilon/iter_${iter}", mode: 'copy'
 
     input:
