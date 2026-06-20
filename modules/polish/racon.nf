@@ -1,27 +1,28 @@
-process RACON_ITER {
+process RACON_POLISH {
     label 'assemblers'
     publishDir "${params.outdir}/02_polish/01_racon", mode: 'copy'
 
     input:
     path contigs
     path long_reads
-    val  iter
 
     output:
-    path "racon_iter_${iter}.fa"
+    path "racon_final.fa"
 
     script:
     def minimap2_preset = (params.tech == 'nanopore' || params.tech == 'nanopore-hq') ? 'ava-ont' : 'ava-pb'
     """
-    minimap2 \\
-        -x ${minimap2_preset} \\
-        -o overlap.paf \\
-        -t ${params.threads} \\
-        ${contigs} ${long_reads}
+    CONTIGS=${contigs}
+    for i in \$(seq 1 ${params.racon_iter}); do
+        minimap2 -x ${minimap2_preset} -o overlap_\${i}.paf -t ${params.threads} \$CONTIGS ${long_reads}
+        racon -t ${params.threads} -e 0.1 -q 15 ${long_reads} overlap_\${i}.paf \$CONTIGS > racon_\${i}.fa
+        CONTIGS=racon_\${i}.fa
+    done
+    cp \$CONTIGS racon_final.fa
+    """
 
-    racon \\
-        -t ${params.threads} \\
-        -e 0.1 -q 15 \\
-        ${long_reads} overlap.paf ${contigs} > racon_iter_${iter}.fa
+    stub:
+    """
+    touch racon_final.fa
     """
 }

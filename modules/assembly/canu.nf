@@ -20,4 +20,9 @@ process ASSEMBLY_CANU {
         maxThreads=${params.threads}
     mv canu_out/assembly.contigs.fasta assembly.contigs.fasta
     """
+
+    stub:
+    """
+    touch assembly.contigs.fasta
+    """
 }

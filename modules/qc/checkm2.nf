@@ -18,4 +18,9 @@ process CHECKM2 {
         --database_path ${params.checkm2_db} \\
         --remove_intermediates
     """
+
+    stub:
+    """
+    mkdir -p checkm2_results
+    """
 }

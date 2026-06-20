@@ -145,6 +145,38 @@ To resume a run after a failure:
 nextflow run main.nf -profile slurm -resume ...
 ```
 
+---
+
+#### Validating pipeline wiring (no data required)
+
+Use `-stub-run` with `-profile test` to verify the full DAG compiles and all process connections are correct without needing real input files or conda environments:
+
+```bash
+nextflow run main.nf -stub-run -profile test \
+    --assembler flye \
+    --tech nanopore \
+    --long_reads dummy.fastq.gz \
+    --read1 dummy_R1.fastq.gz \
+    --read2 dummy_R2.fastq.gz \
+    --racon_iter 2 \
+    --pilon_iter 2 \
+    --checkm2_db dummy.dmnd \
+    --outdir /tmp/nf_test
+```
+
+Expected output:
+
+```
+[PROCESS] ASSEMBLY_POLISH_QC:ASSEMBLY_FLYE (1)
+[PROCESS] ASSEMBLY_POLISH_QC:RACON_POLISH (1)
+[PROCESS] ASSEMBLY_POLISH_QC:PILON_POLISH (1)
+[PROCESS] ASSEMBLY_POLISH_QC:CHECKM2 (1)
+
+[SUCCESS] completed=4 failed=0 cached=0
+```
+
+The `-profile test` flag disables conda so the stub runs locally without any tools installed. Input file paths are not checked for existence in stub mode — any placeholder string works.
+
 ### NosoGraph knowledge graph
 
 This repository provides:

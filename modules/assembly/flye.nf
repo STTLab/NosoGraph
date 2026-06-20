@@ -22,4 +22,10 @@ process ASSEMBLY_FLYE {
         ${tech_flag} ${long_reads}
     mv flye_out/assembly.fasta assembly.contigs.fasta
     """
+
+    stub:
+    """
+    mkdir -p flye_out
+    touch assembly.contigs.fasta
+    """
 }
