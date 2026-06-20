@@ -4,16 +4,17 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  # Versions match the proven NosoGraph lockfile; this combined env solves on
-  # python 3.12 (flye 2.9.5 / racon 1.4.20 do not have py312 builds and will not
-  # co-solve here).
-  #
-  # AVX2 note: the Xeon E5-2670 v0 test server lacks AVX2. If flye/racon abort with
-  # "Illegal instruction" (SIGILL) at runtime, downgrade those tools to AVX2-safe
-  # builds (which forces python 3.9) and split CheckM2 into its own env.
-  - python=3.12
-  - flye=2.9.6
-  - racon=1.5.0
+  # --- AVX2-safe pins --------------------------------------------------------
+  # The Intel Xeon E5-2670 v0 test server lacks AVX2; newer bioconda builds emit
+  # AVX2 and abort with "Illegal instruction" (SIGILL). These are the newest
+  # builds that run without AVX2. flye 2.9.5 / racon 1.4.20 only have py3.8/3.9
+  # builds, which is why python is pinned to 3.9 here (and why CheckM2 — needing
+  # newer python + zlib — lives in its own env, conda/qc.yaml). Relax on
+  # AVX2-capable hardware.
+  - python=3.9
+  - flye=2.9.5
+  - racon=1.4.20
+  # ---------------------------------------------------------------------------
   # Assembly
   - canu
   # Long-read polishing (racon)
@@ -22,5 +23,3 @@ dependencies:
   - bwa-mem2
   - samtools
   - pilon
-  # QC
-  - checkm2

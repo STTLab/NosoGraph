@@ -67,8 +67,12 @@ nextflow run main.nf --pipeline assembly_polish_qc \
 
 ### Notes
 
-- **AVX2:** the conda env pins `racon`, `flye`, and `python` to builds that run on
-  CPUs without AVX2 (see `conda/bacterial-assembly.yaml`). Relax on modern hardware.
+- **Conda envs:** assembly + polishing share `conda/bacterial-assembly.yaml`; CheckM2
+  uses `conda/qc.yaml`. They are split because CheckM2's stack (newer python + tensorflow
+  + zlib) cannot co-solve with the AVX2-safe assembler pins.
+- **AVX2:** `conda/bacterial-assembly.yaml` pins `flye=2.9.5`, `racon=1.4.20`, and
+  `python=3.9` to builds that run on CPUs without AVX2 (newer builds SIGILL on e.g. the
+  Xeon E5-2670 v0). Relax on AVX2-capable hardware.
 
 ## Test — wiring check
 
