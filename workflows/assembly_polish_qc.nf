@@ -13,7 +13,7 @@ workflow ASSEMBLY_POLISH_QC {
     if (!params.assembler)  error "Missing required param: --assembler (canu | flye)"
     if (!params.tech)       error "Missing required param: --tech (nanopore | nanopore-hq | pacbio)"
 
-    long_reads_ch = Channel.fromPath(params.long_reads, checkIfExists: false)
+    long_reads_ch = channel.fromPath(params.long_reads, checkIfExists: false)
 
     // --- Assembly ---
     def assembly_ch
