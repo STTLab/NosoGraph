@@ -2,8 +2,16 @@
 nextflow.enable.dsl=2
 
 include { ASSEMBLY_POLISH_QC } from './workflows/assembly_polish_qc'
+include { AUTO_AUTOCYCLER }    from './modules/vendor/autocycler/main.nf'
 
-// Default entry — runs when no -entry flag is given
+// Select the pipeline with --pipeline (Nextflow's strict parser drops -entry).
+//   nextflow run main.nf --pipeline autocycler --long_reads <reads>
 workflow {
-    ASSEMBLY_POLISH_QC()
+    if (params.pipeline == 'autocycler') {
+        AUTO_AUTOCYCLER()
+    } else if (params.pipeline == 'assembly_polish_qc') {
+        ASSEMBLY_POLISH_QC()
+    } else {
+        error "Unknown --pipeline '${params.pipeline}'. Use: assembly_polish_qc, autocycler"
+    }
 }
