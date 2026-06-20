@@ -1,0 +1,25 @@
+name: bacterial-assembly
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  # --- AVX2 pins -------------------------------------------------------------
+  # Several bioconda builds assume a modern CPU and emit AVX2 instructions, which
+  # crash (SIGILL / "Illegal instruction") on older hardware lacking AVX2 (e.g. the
+  # Intel Xeon E5-2670 v0 test server). Pins below are the newest builds that run
+  # without AVX2 — safe to relax/remove on AVX2-capable machines.
+  - python=3.12            # newer Python pulls deps that assume AVX2; 3.12 is stable here
+  - flye=2.9.5             # later Flye builds crash without AVX2
+  - racon=1.4.20           # racon 1.5.0 requires AVX2
+  # ---------------------------------------------------------------------------
+  # Assembly
+  - canu
+  # Long-read polishing (racon)
+  - minimap2
+  # Short-read polishing (pilon)
+  - bwa-mem2
+  - samtools
+  - pilon
+  # QC
+  - checkm2
