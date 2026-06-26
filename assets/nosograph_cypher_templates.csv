@@ -1,0 +1,219 @@
+name,description,query,id,parentId,isFolder
+NosoGraph,,,0,,true
+SETUP,,,1,0,true
+LOAD DATA,,,2,0,true
+QUERIES,,,3,0,true
+UTILITIES,,,4,0,true
+Create Constraints,"Run once before loading. Paste all into Neo4j Browser and press Ctrl+Enter. NODE KEY needs Enterprise (Neo4j Desktop dev DBs are Enterprise); on Community, replace the Variant NODE KEY with separate IS NOT NULL + IS UNIQUE constraints.","CREATE CONSTRAINT department_id   IF NOT EXISTS FOR (n:Department)      REQUIRE n.department_id IS UNIQUE;
+CREATE CONSTRAINT ward_id         IF NOT EXISTS FOR (n:Ward)            REQUIRE n.ward_id IS UNIQUE;
+CREATE CONSTRAINT patient_id      IF NOT EXISTS FOR (n:Patient)         REQUIRE n.patient_id IS UNIQUE;
+CREATE CONSTRAINT admission_id    IF NOT EXISTS FOR (n:Admission)       REQUIRE n.admission_id IS UNIQUE;
+CREATE CONSTRAINT specimen_id     IF NOT EXISTS FOR (n:Specimen)        REQUIRE n.specimen_id IS UNIQUE;
+CREATE CONSTRAINT sample_id       IF NOT EXISTS FOR (n:Sample)          REQUIRE n.sample_id IS UNIQUE;
+CREATE CONSTRAINT lab_result_id   IF NOT EXISTS FOR (n:LabResult)       REQUIRE n.lab_id IS UNIQUE;
+CREATE CONSTRAINT antibiotic_id   IF NOT EXISTS FOR (n:Antibiotic)      REQUIRE n.antibiotic_id IS UNIQUE;
+CREATE CONSTRAINT organism_taxid  IF NOT EXISTS FOR (n:Organism)        REQUIRE n.taxid IS UNIQUE;
+CREATE CONSTRAINT refgenome_acc   IF NOT EXISTS FOR (n:ReferenceGenome) REQUIRE n.accession_no IS UNIQUE;
+CREATE CONSTRAINT assembly_id     IF NOT EXISTS FOR (n:Assembly)        REQUIRE n.assembly_id IS UNIQUE;
+CREATE CONSTRAINT biodata_uri     IF NOT EXISTS FOR (n:BioDataFile)     REQUIRE n.uri IS UNIQUE;
+CREATE CONSTRAINT contig_id       IF NOT EXISTS FOR (n:Contig)          REQUIRE n.contig_id IS UNIQUE;
+CREATE CONSTRAINT feature_locus   IF NOT EXISTS FOR (n:Feature)         REQUIRE n.locus_tag IS UNIQUE;
+CREATE CONSTRAINT seqrun_id       IF NOT EXISTS FOR (n:SequencingRun)   REQUIRE n.run_id IS UNIQUE;
+CREATE CONSTRAINT vcr_id          IF NOT EXISTS FOR (n:VariantCallingRun) REQUIRE n.process_run_id IS UNIQUE;
+CREATE CONSTRAINT variant_key     IF NOT EXISTS FOR (n:Variant) REQUIRE (n.REF_ACC, n.POS, n.REF, n.ALT, n.hgvs_c, n.hgvs_p) IS NODE KEY;",5,1,false
+01 Departments,Hand-authored clinical CSV in the Neo4j import directory root.,":auto LOAD CSV WITH HEADERS FROM 'file:///Departments.csv' AS rec
+CALL {
+  WITH rec
+  MERGE (d:Department {department_id: rec.department_id})
+    ON CREATE SET d.created_at = datetime()
+  SET d.name = rec.name, d.description = rec.description
+} IN TRANSACTIONS OF 500 ROWS;",6,2,false
+02 Wards,Ward -[:IN_DEPARTMENT]-> Department.,":auto LOAD CSV WITH HEADERS FROM 'file:///Wards.csv' AS rec
+CALL {
+  WITH rec
+  MERGE (w:Ward {ward_id: rec.ward_id})
+    ON CREATE SET w.created_at = datetime()
+  SET w.name = rec.name, w.ward_type = rec.ward_type,
+      w.description = rec.description, w.department_id = rec.department_id
+  WITH w, rec WHERE rec.department_id IS NOT NULL AND rec.department_id <> ''
+  MATCH (d:Department {department_id: rec.department_id})
+  MERGE (w)-[:IN_DEPARTMENT]->(d)
+} IN TRANSACTIONS OF 500 ROWS;",7,2,false
+03 Patients,Patient nodes.,":auto LOAD CSV WITH HEADERS FROM 'file:///Patients.csv' AS rec
+CALL {
+  WITH rec
+  MERGE (p:Patient {patient_id: rec.patient_id})
+    ON CREATE SET p.created_at = datetime()
+  SET p.firstname = rec.firstname, p.lastname = rec.lastname, p.sex = rec.sex,
+      p.date_of_birth = CASE WHEN rec.date_of_birth IS NOT NULL AND rec.date_of_birth <> ''
+                             THEN date(rec.date_of_birth) ELSE NULL END
+} IN TRANSACTIONS OF 500 ROWS;",8,2,false
+04 Admissions,"Patient -[:HAS_ADMISSION]-> Admission -[:ADMITTED_TO {room_no,bed_no}]-> Ward.",":auto LOAD CSV WITH HEADERS FROM 'file:///Admissions.csv' AS rec
+CALL {
+  WITH rec
+  MERGE (a:Admission {admission_id: rec.admission_id})
+  SET a.date_of_admission = CASE WHEN rec.date_of_admission IS NOT NULL AND rec.date_of_admission <> ''
+                                 THEN datetime(rec.date_of_admission) ELSE NULL END,
+      a.date_of_discharge = CASE WHEN rec.date_of_discharge IS NOT NULL AND rec.date_of_discharge <> ''
+                                 THEN datetime(rec.date_of_discharge) ELSE NULL END,
+      a.length_of_stay    = CASE WHEN rec.length_of_stay IS NOT NULL AND rec.length_of_stay <> ''
+                                 THEN toInteger(rec.length_of_stay) ELSE NULL END
+  WITH a, rec
+  MATCH (p:Patient {patient_id: rec.patient_id})
+  MERGE (p)-[:HAS_ADMISSION]->(a)
+  WITH a, rec
+  MATCH (w:Ward {ward_id: rec.ward_id})
+  MERGE (a)-[adm:ADMITTED_TO]->(w)
+  SET adm.room_no = rec.room_no, adm.bed_no = rec.bed_no
+} IN TRANSACTIONS OF 500 ROWS;",9,2,false
+05 Antibiotics,Antibiotic reference vocabulary. PUBLIC EXTENSION: :Antibiotic is not in the core nosograph lib schema (AMR support is a planned amr_genotype handler).,":auto LOAD CSV WITH HEADERS FROM 'file:///Antibiotic.csv' AS rec
+CALL {
+  WITH rec
+  MERGE (ab:Antibiotic {antibiotic_id: rec.antibiotic_id})
+  SET ab.name = rec.name, ab.abbreviation = rec.abbreviation,
+      ab.class = rec.class, ab.description = rec.description
+} IN TRANSACTIONS OF 500 ROWS;",10,2,false
+06 Specimens,Specimen -[:COLLECTED_FROM]-> Patient.,":auto LOAD CSV WITH HEADERS FROM 'file:///Specimens.csv' AS rec
+CALL {
+  WITH rec
+  MERGE (s:Specimen {specimen_id: rec.specimen_id})
+    ON CREATE SET s.created_at = datetime()
+  SET s.specimen_type = rec.specimen_type, s.specimen_class = rec.specimen_class, s.category = rec.category
+  WITH s, rec WHERE rec.patient_id IS NOT NULL AND rec.patient_id <> ''
+  MATCH (p:Patient {patient_id: rec.patient_id})
+  MERGE (s)-[:COLLECTED_FROM]->(p)
+} IN TRANSACTIONS OF 500 ROWS;",11,2,false
+07 Organisms,Organism reference nodes (taxid identity).,":auto LOAD CSV WITH HEADERS FROM 'file:///Organisms.csv' AS rec
+CALL {
+  WITH rec
+  MERGE (o:Organism {taxid: rec.taxid})
+  SET o.sciname = rec.sciname, o.strain = rec.strain
+} IN TRANSACTIONS OF 500 ROWS;",12,2,false
+08 Reference Genomes,ReferenceGenome -[:REFERENCE_GENOME_OF]-> Organism.,":auto LOAD CSV WITH HEADERS FROM 'file:///ReferenceGenomes.csv' AS rec
+CALL {
+  WITH rec
+  MERGE (rg:ReferenceGenome {accession_no: rec.accession_no})
+  SET rg.name = rec.name, rg.molecular_type = rec.molecular_type, rg.strain = rec.strain
+  WITH rg, rec WHERE rec.taxid IS NOT NULL AND rec.taxid <> ''
+  MATCH (o:Organism {taxid: rec.taxid})
+  MERGE (rg)-[:REFERENCE_GENOME_OF]->(o)
+} IN TRANSACTIONS OF 500 ROWS;",13,2,false
+09 Antibiotic Susceptibility (MIC/AST),Specimen -[:TESTED_FOR]-> (:LabResult:BacterialCulture) -[:AGAINST]-> Antibiotic. PUBLIC EXTENSION: the AGAINST->Antibiotic edge and AST properties are NosoGraph extensions of the lib LabResult subtype.,":auto LOAD CSV WITH HEADERS FROM 'file:///LabResults.csv' AS rec
+CALL {
+  WITH rec
+  MERGE (lr:LabResult:BacterialCulture {lab_id: rec.lab_id})
+    ON CREATE SET lr.created_at = datetime()
+  SET lr.specimen_id = rec.specimen_id, lr.result_type = rec.result_type,
+      lr.test_date = CASE WHEN rec.test_date IS NOT NULL AND rec.test_date <> ''
+                          THEN date(rec.test_date) ELSE NULL END,
+      lr.value = rec.value, lr.unit = rec.unit, lr.notes = rec.notes,
+      lr.interpretation = rec.interpretation,
+      lr.organism_taxid = rec.organism_taxid, lr.antibiotic_id = rec.antibiotic_id
+  WITH lr, rec
+  MATCH (s:Specimen {specimen_id: rec.specimen_id})
+  MERGE (s)-[:TESTED_FOR]->(lr)
+  WITH lr, rec WHERE rec.antibiotic_id IS NOT NULL AND rec.antibiotic_id <> ''
+  MATCH (ab:Antibiotic {antibiotic_id: rec.antibiotic_id})
+  MERGE (lr)-[:AGAINST]->(ab)
+} IN TRANSACTIONS OF 500 ROWS;",14,2,false
+10 Sample (pipeline),Replace <sample_id>. Pipeline-produced CSV at <import>/<sample_id>/kg/.,":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/sample.csv' AS rec
+CALL { WITH rec MERGE (s:Sample {sample_id: rec.sample_id}) } IN TRANSACTIONS OF 500 ROWS;",15,2,false
+11 Sample -> Specimen link,"Sample -[:DERIVED_FROM]-> Specimen (clinical<->genomic bridge, hand-authored).",":auto LOAD CSV WITH HEADERS FROM 'file:///Samples.csv' AS rec
+CALL {
+  WITH rec
+  MERGE (s:Sample {sample_id: rec.sample_id})
+  WITH s, rec WHERE rec.specimen_id IS NOT NULL AND rec.specimen_id <> ''
+  MATCH (sp:Specimen {specimen_id: rec.specimen_id})
+  MERGE (s)-[:DERIVED_FROM]->(sp)
+} IN TRANSACTIONS OF 500 ROWS;",16,2,false
+12 Assembly (pipeline),Replace <sample_id>. Sample -[:HAS_ASSEMBLY]-> Assembly (+ CheckM2 quality).,":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/assembly.csv' AS rec
+CALL {
+  WITH rec
+  MERGE (a:Assembly {assembly_id: rec.assembly_id})
+  SET a.assembler = rec.assembler,
+      a.created_at = CASE WHEN rec.created_at IS NOT NULL AND rec.created_at <> '' THEN date(rec.created_at) ELSE NULL END,
+      a.completeness  = CASE WHEN rec.completeness  <> '' THEN toFloat(rec.completeness)  ELSE NULL END,
+      a.contamination = CASE WHEN rec.contamination <> '' THEN toFloat(rec.contamination) ELSE NULL END
+  WITH a, rec
+  MATCH (s:Sample {sample_id: rec.sample_id})
+  MERGE (s)-[:HAS_ASSEMBLY]->(a)
+} IN TRANSACTIONS OF 500 ROWS;",17,2,false
+13 BioDataFile FASTA (pipeline),Replace <sample_id>. Assembly -[:PRODUCE]-> BioDataFile{FASTA}.,":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/biodata_files.csv' AS rec
+WITH rec WHERE rec.file_type = 'FASTA' AND rec.assembly_id IS NOT NULL AND rec.assembly_id <> ''
+CALL {
+  WITH rec
+  MERGE (f:BioDataFile {uri: rec.uri})
+  SET f.file_type = rec.file_type, f.compressed = rec.compressed, f.sha256 = rec.sha256
+  WITH f, rec
+  MATCH (a:Assembly {assembly_id: rec.assembly_id})
+  MERGE (a)-[:PRODUCE]->(f)
+} IN TRANSACTIONS OF 500 ROWS;",18,2,false
+14 BioDataFile FASTQ (pipeline),Replace <sample_id>. Assembly -[:ASSEMBLED_FROM]-> BioDataFile{FASTQ}.,":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/biodata_files.csv' AS rec
+WITH rec WHERE rec.file_type = 'FASTQ'
+CALL {
+  WITH rec
+  MERGE (f:BioDataFile {uri: rec.uri})
+  SET f.file_type = rec.file_type, f.compressed = rec.compressed
+  WITH f, rec
+  MATCH (s:Sample {sample_id: rec.sample_id})-[:HAS_ASSEMBLY]->(a:Assembly)
+  MERGE (a)-[:ASSEMBLED_FROM]->(f)
+} IN TRANSACTIONS OF 500 ROWS;",19,2,false
+15 Contigs (pipeline),Replace <sample_id>. BioDataFile{FASTA} -[:HAS_CONTIG]-> Contig.,":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/contigs.csv' AS rec
+CALL {
+  WITH rec
+  MERGE (c:Contig {contig_id: rec.contig_id})
+  SET c.name = rec.name, c.accession = rec.accession,
+      c.length   = CASE WHEN rec.length   <> '' THEN toInteger(rec.length)   ELSE NULL END,
+      c.coverage = CASE WHEN rec.coverage <> '' THEN toFloat(rec.coverage)   ELSE NULL END,
+      c.is_circular        = (rec.is_circular = 'true'),
+      c.is_repeated_region = (rec.is_repeated_region = 'true'),
+      c.multiplicity = CASE WHEN rec.multiplicity <> '' THEN toInteger(rec.multiplicity) ELSE NULL END,
+      c.alt_group = rec.alt_group, c.graph_path = rec.graph_path,
+      c.sequence_hash = rec.sequence_hash, c.hash_algorithm = rec.hash_algorithm
+  WITH c, rec
+  MATCH (a:Assembly {assembly_id: rec.assembly_id})-[:PRODUCE]->(f:BioDataFile)
+  MERGE (f)-[:HAS_CONTIG]->(c)
+} IN TRANSACTIONS OF 500 ROWS;",20,2,false
+16 Variants & Features (Snippy),Hand-authored SNPs.csv. VariantCallingRun -[:CALLED]-> Variant -[:AGAINST]-> ReferenceGenome; Variant -[:AFFECTS]-> Feature <-[:HAS_FEATURE]- ReferenceGenome. (Variant calling is not yet a pipeline process; this loads example reference-anchored variants.),":auto LOAD CSV WITH HEADERS FROM 'file:///SNPs.csv' AS rec
+WITH rec, coalesce(rec.HGVS_C, '') AS hgvs_c, coalesce(rec.HGVS_P, '') AS hgvs_p
+CALL {
+  WITH rec, hgvs_c, hgvs_p
+  MERGE (v:Variant {REF_ACC: rec.REF_ACC, POS: toInteger(rec.POS), REF: rec.REF, ALT: rec.ALT,
+                    hgvs_c: hgvs_c, hgvs_p: hgvs_p})
+  SET v.CHROM = rec.CHROM, v.TYPE = rec.TYPE, v.EFFECT = rec.EFFECT,
+      v.IMPACT = rec.IMPACT, v.gene_name = rec.LOCUS_TAG
+  MERGE (rg:ReferenceGenome {accession_no: rec.REF_ACC})
+  MERGE (v)-[:AGAINST]->(rg)
+  MERGE (vcr:ProcessRun:VariantCallingRun {process_run_id: 'example:snippy:' + rec.REF_ACC})
+    ON CREATE SET vcr.process = 'variant_calling', vcr.tool = 'snippy',
+                  vcr.run_id = 'example', vcr.reference = rec.REF_ACC
+  MERGE (vcr)-[c:CALLED]->(v)
+  SET c.DP = rec.DP, c.AO = rec.AO, c.RO = rec.RO, c.QUAL = rec.QUAL, c.GT = rec.GT
+  MERGE (vcr)-[:AGAINST]->(rg)
+  WITH v, rg, rec WHERE rec.LOCUS_TAG IS NOT NULL AND rec.LOCUS_TAG <> ''
+  MERGE (f:Feature {locus_tag: rec.LOCUS_TAG})
+    ON CREATE SET f.reference_accession = rec.REF_ACC, f.name = rec.LOCUS_TAG, f.product = rec.LOCUS_TAG_ID
+  MERGE (rg)-[:HAS_FEATURE]->(f)
+  MERGE (v)-[:AFFECTS]->(f)
+} IN TRANSACTIONS OF 500 ROWS;",21,2,false
+Node & relationship counts,Sanity check after loading.,"MATCH (n) RETURN labels(n)[0] AS label, count(n) AS count ORDER BY count DESC;",22,3,false
+Patient -> Specimen -> Sample -> Assembly -> Contig,The clinical-to-genomic spine for each sequenced patient.,"MATCH (p:Patient)<-[:COLLECTED_FROM]-(sp:Specimen)<-[:DERIVED_FROM]-(s:Sample)
+      -[:HAS_ASSEMBLY]->(a:Assembly)-[:PRODUCE]->(:BioDataFile)-[:HAS_CONTIG]->(c:Contig)
+RETURN p.patient_id AS patient, sp.specimen_id AS specimen, s.sample_id AS sample,
+       a.assembler AS assembler, a.completeness AS completeness, count(c) AS contigs
+ORDER BY patient;",23,3,false
+AMR susceptibility summary (S/I/R),Antibiotic susceptibility per specimen.,"MATCH (sp:Specimen)-[:TESTED_FOR]->(lr:LabResult:BacterialCulture)-[:AGAINST]->(ab:Antibiotic)
+RETURN sp.specimen_id AS specimen, ab.class AS drug_class, ab.name AS antibiotic,
+       lr.value AS mic, lr.unit AS unit, lr.interpretation AS sir
+ORDER BY specimen, drug_class, antibiotic;",24,3,false
+Shared-contig clusters (clonality),Samples sharing an identical contig sequence (same sequence_hash) — a starting point for outbreak/clonality investigation.,"MATCH (s:Sample)-[:HAS_ASSEMBLY]->(:Assembly)-[:PRODUCE]->(:BioDataFile)-[:HAS_CONTIG]->(c:Contig)
+WITH c.sequence_hash AS sequence_hash, collect(DISTINCT s.sample_id) AS samples
+WHERE size(samples) > 1
+RETURN sequence_hash, samples, size(samples) AS n_samples
+ORDER BY n_samples DESC;",25,3,false
+Variants per gene,High-impact variant load per locus.,"MATCH (:VariantCallingRun)-[:CALLED]->(v:Variant)-[:AFFECTS]->(f:Feature)
+RETURN f.locus_tag AS gene, count(v) AS variants,
+       collect(DISTINCT v.IMPACT) AS impacts
+ORDER BY variants DESC;",26,3,false
+Schema visualization,Render the live node/relationship schema.,CALL db.schema.visualization();,27,4,false
+Delete all data,WARNING: removes every node and relationship in the current database.,MATCH (n) CALL { WITH n DETACH DELETE n } IN TRANSACTIONS OF 1000 ROWS;,28,4,false

@@ -1,0 +1,6 @@
+specimen_id,patient_id,specimen_type,specimen_class,category,collection_date
+SP001,P001,blood,biological,bacterial culture,2025-01-11
+SP002,P002,urine,biological,bacterial culture,2025-02-02
+SP003,P003,sputum,biological,bacterial culture,2025-02-16
+SP004,P001,wound swab,biological,bacterial culture,2025-03-06
+SP005,P004,blood,biological,bacterial culture,2025-04-02
