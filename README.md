@@ -49,12 +49,11 @@ curl -s https://get.nextflow.io | bash
 mv nextflow ~/bin/
 ```
 
-Conda environments are defined in the `conda/` directory and are created automatically by Nextflow on first run — no manual setup required.
+Conda environments are created automatically by Nextflow on first run — no manual setup required. The assembly → polish → QC pipeline is vendored from [bioinformatics-workflows](https://github.com/minaminii/bioinformatics-workflows) under `modules/vendor/bacterial-assembly/`, which owns its own conda env; additional envs live in the top-level `conda/` directory.
 
 | Environment file | Purpose |
 |---|---|
-| `conda/assemblers.yaml` | Assembly and polishing tools (Flye, Canu, Racon, Pilon, BWA-mem2, SAMtools) |
-| `conda/qc_tools.yaml` | Quality-control tools (CheckM2, FastQC, MultiQC) |
+| `modules/vendor/bacterial-assembly/conda/bacterial-assembly.yaml` | Assembly, polishing, and QC tools (Flye, Canu, Racon, Pilon, BWA-mem2, SAMtools, CheckM2) |
 | `conda/blast.yaml` | BLAST and sequence comparison tools |
 | `conda/medaka.yaml` | Medaka neural-network polishing |
 
@@ -129,12 +128,12 @@ nextflow run main.nf \
     --checkm2_db /path/to/uniref100.KO.1.dmnd
 ```
 
-Default resource allocations per process label (adjustable in `nextflow.config`):
+Default resource allocations per process label (adjustable in `modules/vendor/bacterial-assembly/nextflow.config`):
 
 | Process | CPUs | Memory | Time |
 |---|---|---|---|
 | Assembly (Flye) | `--threads` | 32 GB | 24 h |
-| Assembly (Canu) | `--threads` | 32 GB | 5 d |
+| Assembly (Canu) | `--threads` | 32 GB | 24 h |
 | Racon iteration | `--threads` | 32 GB | 24 h |
 | Pilon iteration | `--threads` | 28 GB | 12 h |
 | CheckM2 | `--threads` | 32 GB | 12 h |
@@ -167,10 +166,10 @@ nextflow run main.nf -stub-run -profile test \
 Expected output:
 
 ```
-[PROCESS] ASSEMBLY_POLISH_QC:ASSEMBLY_FLYE (1)
-[PROCESS] ASSEMBLY_POLISH_QC:RACON_POLISH (1)
-[PROCESS] ASSEMBLY_POLISH_QC:PILON_POLISH (1)
-[PROCESS] ASSEMBLY_POLISH_QC:CHECKM2 (1)
+[PROCESS] AUTO_BACTERIAL_ASSEMBLY:BACTERIAL_ASSEMBLY:ASSEMBLY_FLYE (1)
+[PROCESS] AUTO_BACTERIAL_ASSEMBLY:BACTERIAL_ASSEMBLY:RACON_POLISH (1)
+[PROCESS] AUTO_BACTERIAL_ASSEMBLY:BACTERIAL_ASSEMBLY:PILON_POLISH (1)
+[PROCESS] AUTO_BACTERIAL_ASSEMBLY:BACTERIAL_ASSEMBLY:CHECKM2 (1)
 
 [SUCCESS] completed=4 failed=0 cached=0
 ```

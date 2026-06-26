@@ -1,5 +1,6 @@
 process PILON_POLISH {
     label 'assemblers'
+    conda "${moduleDir}/../conda/bacterial-assembly.yaml"
     publishDir "${params.outdir}/02_polish/02_pilon", mode: 'copy'
 
     input:

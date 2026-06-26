@@ -1,5 +1,6 @@
 process ASSEMBLY_CANU {
     label 'assemblers'
+    conda "${moduleDir}/../conda/bacterial-assembly.yaml"
     publishDir "${params.outdir}/01_assembly", mode: 'copy'
 
     input:

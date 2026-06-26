@@ -1,0 +1,10 @@
+name: bacterial-assembly-qc
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  # CheckM2 pulls a newer python + tensorflow/zlib stack that cannot co-solve with
+  # the AVX2-safe assembler pins (flye 2.9.5 / racon 1.4.20 on python 3.9), so it
+  # gets its own env. See conda/bacterial-assembly.yaml for the AVX2 rationale.
+  - checkm2
