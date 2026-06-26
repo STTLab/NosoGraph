@@ -56,6 +56,7 @@ Conda environments are created automatically by Nextflow on first run — no man
 | `modules/vendor/bacterial-assembly/conda/bacterial-assembly.yaml` | Assembly, polishing, and QC tools (Flye, Canu, Racon, Pilon, BWA-mem2, SAMtools, CheckM2) |
 | `conda/blast.yaml` | BLAST and sequence comparison tools |
 | `conda/medaka.yaml` | Medaka neural-network polishing |
+| `conda/kg_export.yaml` | Knowledge-graph CSV exporter (`report/kg_export.py`; Python standard library only) |
 
 ---
 
@@ -125,6 +126,7 @@ Add `-profile slurm` to submit each process as an independent SLURM job. Specify
 nextflow run main.nf \
     -profile slurm \
     --queue normal \
+    --sample_id sample_01 \
     --long_reads reads.fastq.gz \
     --assembler flye \
     --tech nanopore \
@@ -159,8 +161,10 @@ Use `-stub-run` with `-profile test` to verify the full DAG compiles and all pro
 
 ```bash
 nextflow run main.nf -stub-run -profile test \
-    --assembler flye \
-    --tech nanopore \
+    --sample_id sample_01 \
+    --assembler canu \
+    --tech pacbio \
+    --genome_size 5m \
     --long_reads dummy.fastq.gz \
     --read1 dummy_R1.fastq.gz \
     --read2 dummy_R2.fastq.gz \
@@ -173,15 +177,22 @@ nextflow run main.nf -stub-run -profile test \
 Expected output:
 
 ```
-[PROCESS] AUTO_BACTERIAL_ASSEMBLY:BACTERIAL_ASSEMBLY:ASSEMBLY_FLYE (1)
-[PROCESS] AUTO_BACTERIAL_ASSEMBLY:BACTERIAL_ASSEMBLY:RACON_POLISH (1)
-[PROCESS] AUTO_BACTERIAL_ASSEMBLY:BACTERIAL_ASSEMBLY:PILON_POLISH (1)
-[PROCESS] AUTO_BACTERIAL_ASSEMBLY:BACTERIAL_ASSEMBLY:CHECKM2 (1)
+[PROCESS] BACTERIAL_ASSEMBLY:ASSEMBLY_CANU (1)
+[PROCESS] BACTERIAL_ASSEMBLY:RACON_POLISH (1)
+[PROCESS] BACTERIAL_ASSEMBLY:PILON_POLISH (1)
+[PROCESS] BACTERIAL_ASSEMBLY:CHECKM2 (1)
+[PROCESS] KG_EXPORT (sample_01)
 
-[SUCCESS] completed=4 failed=0 cached=0
+[SUCCESS] completed=5 failed=0 cached=0
 ```
 
 The `-profile test` flag disables conda so the stub runs locally without any tools installed. Input file paths are not checked for existence in stub mode — any placeholder string works.
+
+> **Known limitation (vendored module):** the current `modules/vendor/bacterial-assembly` revision
+> exposes Flye's two outputs (`assembly.contigs.fasta`, `assembly_info.txt`) without naming them, so the
+> **`--assembler flye`** path fails wiring with `RACON_POLISH declares 2 inputs but was called with 3 arguments`.
+> The fix belongs upstream (name the Flye process outputs `emit: contigs`/`info` and use
+> `ASSEMBLY_FLYE(...).contigs`). Validate with `--assembler canu` until that lands.
 
 ### NosoGraph knowledge graph
 
