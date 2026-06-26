@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) 2026 Sara Wattanasombat
+ * SPDX-License-Identifier: MPL-2.0
+ *
+ * This Source Code Form is subject to the terms of the
+ * Mozilla Public License, v. 2.0. If a copy of the MPL
+ * was not distributed with this file, You can obtain one at
+ * https://mozilla.org/MPL/2.0/
+ */
 process ASSEMBLY_FLYE {
     label 'assemblers'
     conda "${moduleDir}/../conda/bacterial-assembly.yaml"
@@ -8,6 +17,7 @@ process ASSEMBLY_FLYE {
 
     output:
     path "assembly.contigs.fasta"
+    path "assembly_info.txt"
 
     script:
     def tech_flag = params.tech == 'nanopore'    ? '--nano-raw'   :
@@ -22,11 +32,13 @@ process ASSEMBLY_FLYE {
         ${genome_size_arg} \\
         ${tech_flag} ${long_reads}
     mv flye_out/assembly.fasta assembly.contigs.fasta
+    mv flye_out/assembly_info.txt assembly_info.txt
     """
 
     stub:
     """
     mkdir -p flye_out
     touch assembly.contigs.fasta
+    touch assembly_info.txt
     """
 }

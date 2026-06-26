@@ -86,3 +86,22 @@ nextflow run ./bacterial-assembly -profile test -stub-run \
 
 Expect FLYE → RACON → PILON → CHECKM2 to execute as stubs. Swap `--assembler canu`
 or set `--pilon_iter 0` to exercise the other paths.
+
+## Software dependencies
+
+This pipeline uses external software managed via Conda environment files located in `conda/*.yaml`.
+
+A non-exhaustive list of tools includes Nextflow (Apache 2.0) and other bioinformatics tools defined in the Conda environment specifications.
+
+All tools are distributed under their respective licenses. Please consult each tool’s documentation for license information.
+
+---
+
+## License
+
+SPDX-License-Identifier: MPL-2.0
+
+Copyright © 2026 Sara Wattanasombat
+
+This project is licensed under the Mozilla Public License 2.0 (MPL-2.0).
+A copy of the license is included in the LICENSE file, or available at https://mozilla.org/MPL/2.0/.
