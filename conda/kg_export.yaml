@@ -1,0 +1,6 @@
+name: kg_export
+channels:
+  - conda-forge
+dependencies:
+  # The exporter is pure standard library; only an interpreter is needed.
+  - python=3.10

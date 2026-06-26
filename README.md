@@ -63,6 +63,7 @@ Conda environments are created automatically by Nextflow on first run — no man
 
 | Parameter | Description | Default |
 |---|---|---|
+| `--sample_id` | Sample identifier; scopes outputs to `<outdir>/<sample_id>/` and namespaces contig IDs | required |
 | `--long_reads` | Long-read FASTQ (gzipped or uncompressed) | required |
 | `--read1` | Paired-end short reads R1 (required for Pilon) | — |
 | `--read2` | Paired-end short reads R2 (required for Pilon) | — |
@@ -84,6 +85,7 @@ Hybrid assembly with Flye:
 
 ```bash
 nextflow run main.nf \
+    --sample_id sample_01 \
     --long_reads reads.fastq.gz \
     --read1 sample_R1.fastq.gz \
     --read2 sample_R2.fastq.gz \
@@ -96,10 +98,15 @@ nextflow run main.nf \
     --checkm2_db /path/to/uniref100.KO.1.dmnd
 ```
 
+This writes the assembly under `results/01_assembly/` and a knowledge-graph CSV bundle to
+`results/sample_01/kg/` (`sample.csv`, `assembly.csv`, `biodata_files.csv`, `contigs.csv`) ready for
+import into Neo4j (see [NosoGraph knowledge graph](#nosograph-knowledge-graph)).
+
 Long-read-only assembly with Canu:
 
 ```bash
 nextflow run main.nf \
+    --sample_id sample_02 \
     --long_reads pacbio_reads.fastq.gz \
     --assembler canu \
     --tech pacbio \
@@ -181,8 +188,9 @@ The `-profile test` flag disables conda so the stub runs locally without any too
 This repository provides:
 
 - A conceptual schema defining node labels, relationship types, and data domains
-- Example CSV files for data import
-- Cypher queries demonstrating common operations and analytical use cases
+- Example CSV files for data import ([`example/csv/`](./example/csv))
+- A single importable loader artefact — [`assets/nosograph_cypher_templates.csv`](./assets/nosograph_cypher_templates.csv) — a Neo4j Browser saved-queries file with the constraints, idempotent `LOAD CSV` import queries, and example analytical queries
+- A per-sample knowledge-graph exporter (`report/kg_export.py`) that the assembly pipeline runs to write `kg/` CSVs to `<outdir>/<sample_id>/kg/`
 - Guidance for setting up Neo4j as a working environment
 
 Users can adopt the schema as a starting point, extend it to fit their specific use cases, and integrate it with custom pipelines or applications as needed.
@@ -218,20 +226,40 @@ Follow instructions to download, install, and launch the application.
 
 #### 3. Prepare Data Import
 
-To import data into Neo4j instance, if using CSV files, the file must be put into an import directory within an instance path. The path can be looked up in instances list in the connection screen `Path: C:\Users\<username>\.Neo4jDesktop2\Data\dbmss\dbms-<instance-id>\import`
+CSV files are loaded from the instance's **import directory**, found in the instances list on the
+connection screen, e.g. `Path: C:\Users\<username>\.Neo4jDesktop2\Data\dbmss\dbms-<instance-id>\import`.
 
-```Cyppher
-LOAD CSV WITH HEADERS FROM 'file:///<file_name>.csv' AS row
-RETURN row;
-```
+Copy both sources into that import directory:
 
-#### 4. Explore the Graph
+1. The hand-authored clinical CSVs from [`example/csv/`](./example/csv) (`Departments.csv`, `Wards.csv`,
+   `Patients.csv`, `Admissions.csv`, `Antibiotic.csv`, `Specimens.csv`, `Samples.csv`, `Organisms.csv`,
+   `ReferenceGenomes.csv`, `LabResults.csv`, `SNPs.csv`) — copy them to the import-directory **root**.
+2. For each sequenced sample, the pipeline-produced `kg/` directory from
+   `<outdir>/<sample_id>/kg/` — copy it so it sits at `<import>/<sample_id>/kg/`.
 
-From Query menu after connected to an instance you may use Neo4j Browser to:
+#### 4. Load with the bundled Cypher templates
 
-- Visualize relationships interactively
-- Expand nodes (double-click)
-- Run example queries from this repository
+This repository ships no programmatic loader — the only loader artefact is the saved-queries file
+[`assets/nosograph_cypher_templates.csv`](./assets/nosograph_cypher_templates.csv).
+
+1. In Neo4j Browser, open the **Favorites** sidebar → **Import Cypher queries** and select
+   `assets/nosograph_cypher_templates.csv`. The queries appear under a **NosoGraph** folder
+   (`SETUP` / `LOAD DATA` / `QUERIES` / `UTILITIES`).
+2. Run **SETUP → Create Constraints** once.
+3. Run the **LOAD DATA** queries in order. For the per-sample genomic loads (`10`–`15`), replace
+   `<sample_id>` in the `file:///<sample_id>/kg/...` paths with your actual sample id.
+4. Each load is idempotent (`MERGE`, `IN TRANSACTIONS OF 500 ROWS`), so re-running is safe.
+
+The node labels, properties, and relationships these templates create match the canonical NosoGraph
+graph schema, so a manual load yields the same structure as the interface library's ingest.
+
+#### 5. Explore the Graph
+
+From the **QUERIES** folder (or the Query editor) you can:
+
+- Run the example analytical queries (node counts, the Patient→Specimen→Sample→Assembly→Contig spine,
+  AMR susceptibility summary, shared-contig clonality clusters, variants per gene)
+- Visualize relationships interactively and expand nodes (double-click)
 
 ## Acknowledgement
 

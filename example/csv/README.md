@@ -171,3 +171,81 @@ The combination of REF_ACC, REF, ALT, and POS acts as a composite key for identi
 | LOCUS_TAG | String  | ☐        | Gene or locus associated with the variant.                                                                                                      | BAZ09_RS00005      |
 | HGVS_C    | String  | ☐        | HGVS coding DNA notation describing the nucleotide-level change.                                                                                | c.765C>T           |
 | HGVS_P    | String  | ☐        | HGVS protein-level annotation describing the amino acid change.                                                                                 | p.Ser255Ser        |
+
+## Microbiology
+
+### Organisms.csv
+
+Reference list of organisms, keyed by NCBI taxonomy id.
+
+| Property | Type   | Required | Description                          | Example               |
+| -------- | ------ | -------- | ------------------------------------ | --------------------- |
+| taxid    | String | ☑        | NCBI Taxonomy id (Organism identity) | 573                   |
+| sciname  | String | ☑        | Scientific name                      | Klebsiella pneumoniae |
+| strain   | String | ☐        | Strain designation                   | KP-1                  |
+
+### ReferenceGenomes.csv
+
+Reference genomes used for variant calling / typing. `ReferenceGenome -[:REFERENCE_GENOME_OF]-> Organism`.
+
+| Property       | Type   | Required | Description                                | Example                      |
+| -------------- | ------ | -------- | ------------------------------------------ | ---------------------------- |
+| accession_no   | String | ☑        | Accession (ReferenceGenome identity)       | NZ_CP023401.1                |
+| name           | String | ☐        | Human-readable genome name                 | Klebsiella pneumoniae chrom. |
+| molecular_type | String | ☐        | Molecule type                              | DNA                          |
+| strain         | String | ☐        | Strain designation                         | KP-1                         |
+| taxid          | String | ☐        | Links the genome to an Organism by `taxid` | 573                          |
+
+### Specimens.csv
+
+Specimens collected from patients. `Specimen -[:COLLECTED_FROM]-> Patient`.
+
+| Property        | Type   | Required | Description                                    | Example           |
+| --------------- | ------ | -------- | ---------------------------------------------- | ----------------- |
+| specimen_id     | String | ☑        | Unique identifier for the specimen             | SP001             |
+| patient_id      | String | ☑        | Reference to the patient the specimen was from | P001              |
+| specimen_type   | String | ☐        | Sample type                                    | blood             |
+| specimen_class  | String | ☐        | High-level class                               | biological        |
+| category        | String | ☐        | Test/handling category                         | bacterial culture |
+| collection_date | Date   | ☐        | Collection date (ISO YYYY-MM-DD)               | 2025-01-11        |
+
+### Samples.csv
+
+The clinical-to-genomic bridge: maps a sequencing **sample_id** (produced by the pipeline) to the
+**specimen** it was sequenced from. `Sample -[:DERIVED_FROM]-> Specimen`.
+
+| Property    | Type   | Required | Description                          | Example  |
+| ----------- | ------ | -------- | ------------------------------------ | -------- |
+| sample_id   | String | ☑        | Pipeline sample id (Sample identity) | BAC_S001 |
+| specimen_id | String | ☑        | The specimen the sample derives from | SP003    |
+
+### LabResults.csv — antibiotic susceptibility (MIC/AST)
+
+Antibiotic susceptibility results, modelled as `:LabResult:BacterialCulture` and wired
+`Specimen -[:TESTED_FOR]-> LabResult -[:AGAINST]-> Antibiotic`.
+
+> **Note:** `:LabResult` and its `lab_id` identity are part of the core NosoGraph schema, but the
+> `-[:AGAINST]-> Antibiotic` edge and the AST-specific properties (`interpretation`, `organism_taxid`,
+> `antibiotic_id`) are a **public NosoGraph extension** pending a dedicated AMR handler in the
+> interface library. The lab-result node itself stays schema-compatible.
+
+| Property       | Type   | Required | Description                                     | Example    |
+| -------------- | ------ | -------- | ----------------------------------------------- | ---------- |
+| lab_id         | String | ☑        | Unique identifier for the result (LabResult id) | LR001      |
+| specimen_id    | String | ☑        | Specimen tested                                 | SP001      |
+| result_type    | String | ☐        | Result type                                     | MIC        |
+| test_date      | Date   | ☐        | Test date (ISO YYYY-MM-DD)                      | 2025-01-12 |
+| value          | String | ☐        | Measured value (e.g. MIC)                       | 4          |
+| unit           | String | ☐        | Unit of the value                               | mg/L       |
+| notes          | String | ☐        | Free-text notes                                 |            |
+| organism_taxid | String | ☐        | Organism tested (links to Organisms.csv)        | 573        |
+| antibiotic_id  | String | ☐        | Antibiotic tested (links to Antibiotic.csv)     | A006       |
+| interpretation | String | ☐        | Clinical interpretation (`S` / `I` / `R`)       | S          |
+
+## Pipeline-produced genomic CSVs (`<sample_id>/kg/`)
+
+The remaining nodes (Sample assembly/contig provenance) are **not** hand-authored — the assembly
+pipeline writes them per sample to `<outdir>/<sample_id>/kg/` (`sample.csv`, `assembly.csv`,
+`biodata_files.csv`, `contigs.csv`) via `report/kg_export.py`. Copy that `kg/` directory into the
+Neo4j import directory next to these clinical CSVs and load it with the `10`–`15` templates in
+`assets/nosograph_cypher_templates.csv`.

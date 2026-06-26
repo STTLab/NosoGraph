@@ -1,1 +1,0 @@
-MATCH (p:Patient) WHERE p.patient_id = $patient_id RETURN p

@@ -1,11 +1,2 @@
-biopython==1.87
-dotenv==0.9.9
-neo4j==6.2.0
-numpy==2.4.4
-pandas==3.0.3
-prompt_toolkit==3.0.52
-python-dateutil==2.9.0.post0
-python-dotenv==1.2.2
-pytz==2026.2
-six==1.17.0
-wcwidth==0.7.0
+# The knowledge-graph CSV exporter (report/kg_export.py) is pure Python standard
+# library — no third-party packages are required to run it.
