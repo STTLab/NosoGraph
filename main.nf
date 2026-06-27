@@ -27,9 +27,9 @@ workflow BACTERIAL_ASSEMBLY {
         // --- Assembly ---
         def assembly_ch
         if (params.assembler == 'canu') {
-            assembly_ch = ASSEMBLY_CANU(long_reads_ch)
+            assembly_ch = ASSEMBLY_CANU(long_reads_ch).contigs
         } else if (params.assembler == 'flye') {
-            assembly_ch = ASSEMBLY_FLYE(long_reads_ch)
+            assembly_ch = ASSEMBLY_FLYE(long_reads_ch).contigs
         } else {
             error "Unknown assembler '${params.assembler}'. Use: canu, flye"
         }

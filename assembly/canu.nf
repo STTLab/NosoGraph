@@ -16,7 +16,7 @@ process ASSEMBLY_CANU {
     path long_reads
 
     output:
-    path "assembly.contigs.fasta"
+    path "assembly.contigs.fasta", emit: contigs
 
     script:
     if (!params.genome_size) error "ASSEMBLY_CANU requires --genome_size"
