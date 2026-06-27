@@ -188,12 +188,6 @@ Expected output:
 
 The `-profile test` flag disables conda so the stub runs locally without any tools installed. Input file paths are not checked for existence in stub mode — any placeholder string works.
 
-> **Known limitation (vendored module):** the current `modules/vendor/bacterial-assembly` revision
-> exposes Flye's two outputs (`assembly.contigs.fasta`, `assembly_info.txt`) without naming them, so the
-> **`--assembler flye`** path fails wiring with `RACON_POLISH declares 2 inputs but was called with 3 arguments`.
-> The fix belongs upstream (name the Flye process outputs `emit: contigs`/`info` and use
-> `ASSEMBLY_FLYE(...).contigs`). Validate with `--assembler canu` until that lands.
-
 ### NosoGraph knowledge graph
 
 This repository provides:
