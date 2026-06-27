@@ -16,8 +16,8 @@ process ASSEMBLY_FLYE {
     path long_reads
 
     output:
-    path "assembly.contigs.fasta"
-    path "assembly_info.txt"
+    path "assembly.contigs.fasta", emit: contigs
+    path "assembly_info.txt",      emit: info
 
     script:
     def tech_flag = params.tech == 'nanopore'    ? '--nano-raw'   :
