@@ -56,7 +56,8 @@ Conda environments are created automatically by Nextflow on first run — no man
 | `modules/vendor/bacterial-assembly/conda/bacterial-assembly.yaml` | Assembly, polishing, and QC tools (Flye, Canu, Racon, Pilon, BWA-mem2, SAMtools, CheckM2) |
 | `conda/blast.yaml` | BLAST and sequence comparison tools |
 | `conda/medaka.yaml` | Medaka neural-network polishing |
-| `conda/kg_export.yaml` | Knowledge-graph CSV exporter (`report/kg_export.py`; Python standard library only) |
+| `conda/kg_export.yaml` | Knowledge-graph CSV exporter (`report/kg_export.py`; Python + pandas) |
+| `conda/meta_kg_export.yaml` | Metagenomics knowledge-graph CSV exporter (`report/meta_kg_export.py`; Python + pandas) |
 
 ---
 
@@ -64,7 +65,9 @@ Conda environments are created automatically by Nextflow on first run — no man
 
 | Parameter | Description | Default |
 |---|---|---|
+| `--pipeline` | Pipeline to run: `bacterial-assembly`, `autocycler`, or `metagenomics` | `bacterial-assembly` |
 | `--sample_id` | Sample identifier; scopes outputs to `<outdir>/<sample_id>/` and namespaces contig IDs | required |
+| `--meta_results` | A standalone `wf-metagenomics` output directory (required for `--pipeline metagenomics`) | — |
 | `--long_reads` | Long-read FASTQ (gzipped or uncompressed) | required |
 | `--read1` | Paired-end short reads R1 (required for Pilon) | — |
 | `--read2` | Paired-end short reads R2 (required for Pilon) | — |
@@ -115,6 +118,44 @@ nextflow run main.nf \
     --outdir results \
     --threads 32
 ```
+
+---
+
+#### Metagenomics (pathogen identification)
+
+The `metagenomics` pipeline turns an Oxford Nanopore [`wf-metagenomics`](https://github.com/epi2me-labs/wf-metagenomics)
+run into a high-level, pathogen-ID knowledge graph. It is a **two-step** workflow: run
+`wf-metagenomics` on its own (its taxonomic classification is left untouched), then point
+NosoGraph at the output directory to export the `kg/` CSVs.
+
+```bash
+# Step 1 — run wf-metagenomics standalone (see its own docs), e.g.
+nextflow run epi2me-labs/wf-metagenomics --fastq reads.fastq.gz --sample sample_meta ...
+
+# Step 2 — export the NosoGraph knowledge graph from its outputs
+nextflow run main.nf \
+    --pipeline metagenomics \
+    --sample_id sample_meta \
+    --meta_results /path/to/wf-metagenomics/output \
+    --long_reads reads.fastq.gz \
+    --outdir results
+```
+
+Step 2 reads the per-sample Kraken2 report (`kraken2/<sample_id>.kraken2.report.txt`, filtered to
+species + genus) and writes a knowledge-graph CSV bundle to
+`results/sample_meta/kg/` (`taxonomic_classification.csv`, `meta_reads.csv`, `taxa.csv`). `--long_reads`
+is optional — when given, the input FASTQ is recorded as a `BioDataFile` node. The resulting subgraph
+(a public NosoGraph extension built on the generic `ProcessRun` pattern) is:
+
+```mermaid
+graph LR
+  S[Sample] -->|CLASSIFIED_IN| TC["ProcessRun:TaxonomicClassification"]
+  TC -->|CLASSIFIED_FROM| F["BioDataFile {FASTQ}"]
+  TC -->|"IDENTIFIED {read_count, abundance, rank}"| O["Organism {taxid}"]
+```
+
+Import these CSVs with **LOAD DATA** steps `17`–`19`, then run the **QUERIES → Pathogens detected per
+sample** template (see [NosoGraph knowledge graph](#nosograph-knowledge-graph)).
 
 ---
 
@@ -195,7 +236,7 @@ This repository provides:
 - A conceptual schema defining node labels, relationship types, and data domains
 - Example CSV files for data import ([`example/csv/`](./example/csv))
 - A single importable loader artefact — [`assets/nosograph_cypher_templates.csv`](./assets/nosograph_cypher_templates.csv) — a Neo4j Browser saved-queries file with the constraints, idempotent `LOAD CSV` import queries, and example analytical queries
-- A per-sample knowledge-graph exporter (`report/kg_export.py`) that the assembly pipeline runs to write `kg/` CSVs to `<outdir>/<sample_id>/kg/`
+- Per-sample knowledge-graph exporters that the pipelines run to write `kg/` CSVs to `<outdir>/<sample_id>/kg/` — `report/kg_export.py` (bacterial assembly) and `report/meta_kg_export.py` (metagenomics pathogen ID)
 - Guidance for setting up Neo4j as a working environment
 
 Users can adopt the schema as a starting point, extend it to fit their specific use cases, and integrate it with custom pipelines or applications as needed.
@@ -251,8 +292,9 @@ This repository ships no programmatic loader — the only loader artefact is the
    `assets/nosograph_cypher_templates.csv`. The queries appear under a **NosoGraph** folder
    (`SETUP` / `LOAD DATA` / `QUERIES` / `UTILITIES`).
 2. Run **SETUP → Create Constraints** once.
-3. Run the **LOAD DATA** queries in order. For the per-sample genomic loads (`10`–`15`), replace
-   `<sample_id>` in the `file:///<sample_id>/kg/...` paths with your actual sample id.
+3. Run the **LOAD DATA** queries in order. For the per-sample genomic loads (`10`–`15`,
+   and `17`–`19` for metagenomics samples), replace `<sample_id>` in the
+   `file:///<sample_id>/kg/...` paths with your actual sample id.
 4. Each load is idempotent (`MERGE`, `IN TRANSACTIONS OF 500 ROWS`), so re-running is safe.
 
 The node labels, properties, and relationships these templates create match the canonical NosoGraph

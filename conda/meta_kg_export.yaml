@@ -1,4 +1,4 @@
-name: kg_export
+name: meta_kg_export
 channels:
   - conda-forge
 dependencies:
