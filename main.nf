@@ -4,13 +4,16 @@ nextflow.enable.dsl=2
 include { BACTERIAL_ASSEMBLY } from './modules/vendor/bacterial-assembly/main.nf'
 include { AUTO_AUTOCYCLER }    from './modules/vendor/autocycler/main.nf'
 include { KG_EXPORT }          from './modules/local/kg_export.nf'
+include { META_KG_EXPORT }     from './modules/local/meta_kg_export.nf'
 
 // One sample per invocation (STTLab monolithic model). Select the pipeline with
-// --pipeline; the bacterial-assembly path additionally exports a per-sample knowledge
-// graph to <outdir>/<sample_id>/kg/.
+// --pipeline; the bacterial-assembly and metagenomics paths additionally export a
+// per-sample knowledge graph to <outdir>/<sample_id>/kg/.
 //   nextflow run main.nf --pipeline bacterial-assembly --sample_id S01 \
 //       --long_reads reads.fastq.gz --assembler flye --tech nanopore ...
 //   nextflow run main.nf --pipeline autocycler --long_reads <reads>
+//   nextflow run main.nf --pipeline metagenomics --sample_id S01 \
+//       --meta_results <wf-metagenomics outdir> [--long_reads reads.fastq.gz]
 workflow {
     if (params.pipeline == 'autocycler') {
         AUTO_AUTOCYCLER()
@@ -48,7 +51,21 @@ workflow {
 
         KG_EXPORT(assembly_v, flye_info_v, checkm2_v)
 
+    } else if (params.pipeline == 'metagenomics') {
+        // Two-step model: wf-metagenomics is run standalone (vendor untouched), then this
+        // branch reads its per-sample Kraken2 report from --meta_results and exports a
+        // high-level pathogen-ID knowledge graph (NosoGraph-owned). Bracken refinement is a
+        // future seam (see report/meta_kg_export.py).
+        if (!params.sample_id)    error "Missing required param: --sample_id"
+        if (!params.meta_results) error "Missing required param: --meta_results (wf-metagenomics output dir)"
+
+        def kraken2_report = file("${params.meta_results}/kraken2/${params.sample_id}.kraken2.report.txt")
+        if (!workflow.stubRun && !kraken2_report.exists())
+            error "Kraken2 report not found: ${kraken2_report}"
+
+        META_KG_EXPORT(channel.fromPath(kraken2_report, checkIfExists: false))
+
     } else {
-        error "Unknown --pipeline '${params.pipeline}'. Use: bacterial-assembly, autocycler"
+        error "Unknown --pipeline '${params.pipeline}'. Use: bacterial-assembly, autocycler, metagenomics"
     }
 }

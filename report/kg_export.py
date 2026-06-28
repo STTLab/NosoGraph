@@ -26,6 +26,8 @@ import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pandas as pd
+
 from ContextBuilder.assembly_info import parse_assembly
 
 
@@ -38,10 +40,9 @@ def _sha256(path: Path) -> str:
 
 
 def _write_csv(path: Path, fieldnames, rows) -> None:
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
-        w.writeheader()
-        w.writerows(rows)
+    # Restrict to fieldnames (drops any extra dict keys, like the old DictWriter
+    # extrasaction='ignore'); an empty rows list still writes a header-only file.
+    pd.DataFrame(rows, columns=fieldnames).to_csv(path, index=False)
 
 
 def _bool_str(v) -> str:

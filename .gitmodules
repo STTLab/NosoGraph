@@ -1,3 +1,6 @@
 [submodule "wiki"]
 	path = wiki
 	url = https://github.com/STTLab/NosoGraph.wiki.git
+[submodule "modules/vendor/epi2me-labs/wf-metagenomics"]
+	path = modules/vendor/epi2me-labs/wf-metagenomics
+	url = https://github.com/epi2me-labs/wf-metagenomics.git

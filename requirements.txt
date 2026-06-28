@@ -1,2 +1,4 @@
-# The knowledge-graph CSV exporter (report/kg_export.py) is pure Python standard
-# library — no third-party packages are required to run it.
+# Third-party Python dependencies for the knowledge-graph CSV exporters
+# (report/kg_export.py and report/meta_kg_export.py). Nextflow provisions these
+# automatically via conda/kg_export.yaml and conda/meta_kg_export.yaml.
+pandas
