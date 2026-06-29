@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MPL-2.0
 """NosoGraph metagenomics knowledge-graph CSV exporter.
 
-Reads one sample's Oxford Nanopore ``wf-metagenomics`` Kraken2 report and writes flat
-CSVs for manual bulk import into Neo4j via the LOAD DATA templates in
+Reads one sample's Kraken2 report (produced by the vendored ``kraken2-classify``
+module) and writes flat CSVs for manual bulk import into Neo4j via the LOAD DATA templates in
 ``assets/nosograph_cypher_templates.csv``. The node labels, property names and
 relationship types match the migrated ``nosograph`` graph schema; the
 taxonomic-classification subgraph is a public NosoGraph extension built on the generic
@@ -27,9 +27,9 @@ Only species (rank ``S``) and genus (rank ``G``) rows are kept, reusing the exis
 (matches ``Organisms.csv``); booleans are lowercase ``true``/``false``; empty values are
 ``""``. Abundance is the Kraken2 clade fraction (clade reads / classified reads).
 
-Seam: Bracken refinement is intentionally not wired in. wf-metagenomics publishes a
-kraken-style ``<sid>.kraken2_bracken.report``; to add it, parse that report (same 6-col
-format handled by ``_read_kraken2``) and override per-taxon read counts/abundance before
+Seam: Bracken refinement is intentionally not wired in. To add it, run Bracken on the
+Kraken2 report to produce a kraken-style ``<sid>.bracken.report`` (same 6-col format
+handled by ``_read_kraken2``) and override per-taxon read counts/abundance before
 writing ``taxa.csv``, setting ``--tool kraken2+bracken``.
 """
 import argparse

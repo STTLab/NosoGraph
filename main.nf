@@ -3,6 +3,7 @@ nextflow.enable.dsl=2
 
 include { BACTERIAL_ASSEMBLY } from './modules/vendor/bacterial-assembly/main.nf'
 include { AUTO_AUTOCYCLER }    from './modules/vendor/autocycler/main.nf'
+include { KRAKEN2_CLASSIFY }   from './modules/vendor/kraken2-classify/main.nf'
 include { KG_EXPORT }          from './modules/local/kg_export.nf'
 include { META_KG_EXPORT }     from './modules/local/meta_kg_export.nf'
 
@@ -13,7 +14,7 @@ include { META_KG_EXPORT }     from './modules/local/meta_kg_export.nf'
 //       --long_reads reads.fastq.gz --assembler flye --tech nanopore ...
 //   nextflow run main.nf --pipeline autocycler --long_reads <reads>
 //   nextflow run main.nf --pipeline metagenomics --sample_id S01 \
-//       --meta_results <wf-metagenomics outdir> [--long_reads reads.fastq.gz]
+//       --long_reads reads.fastq.gz --kraken2_db <kraken2 DB dir>
 workflow {
     if (params.pipeline == 'autocycler') {
         AUTO_AUTOCYCLER()
@@ -52,18 +53,16 @@ workflow {
         KG_EXPORT(assembly_v, flye_info_v, checkm2_v)
 
     } else if (params.pipeline == 'metagenomics') {
-        // Two-step model: wf-metagenomics is run standalone (vendor untouched), then this
-        // branch reads its per-sample Kraken2 report from --meta_results and exports a
-        // high-level pathogen-ID knowledge graph (NosoGraph-owned). Bracken refinement is a
-        // future seam (see report/meta_kg_export.py).
-        if (!params.sample_id)    error "Missing required param: --sample_id"
-        if (!params.meta_results) error "Missing required param: --meta_results (wf-metagenomics output dir)"
+        // Single-step model: the vendored kraken2-classify module classifies the reads
+        // against a pre-built Kraken2 DB, then this exports a high-level pathogen-ID
+        // knowledge graph (NosoGraph-owned) from the Kraken2 report. Bracken refinement is
+        // a future seam (see report/meta_kg_export.py).
+        if (!params.sample_id)  error "Missing required param: --sample_id"
+        if (!params.long_reads) error "Missing required param: --long_reads"
+        if (!params.kraken2_db) error "Missing required param: --kraken2_db (Kraken2 DB dir with hash.k2d/opts.k2d/taxo.k2d)"
 
-        def kraken2_report = file("${params.meta_results}/kraken2/${params.sample_id}.kraken2.report.txt")
-        if (!workflow.stubRun && !kraken2_report.exists())
-            error "Kraken2 report not found: ${kraken2_report}"
-
-        META_KG_EXPORT(channel.fromPath(kraken2_report, checkIfExists: false))
+        KRAKEN2_CLASSIFY(channel.fromPath(params.long_reads, checkIfExists: false))
+        META_KG_EXPORT(KRAKEN2_CLASSIFY.out.report)
 
     } else {
         error "Unknown --pipeline '${params.pipeline}'. Use: bacterial-assembly, autocycler, metagenomics"

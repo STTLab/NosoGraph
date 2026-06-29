@@ -67,8 +67,9 @@ Conda environments are created automatically by Nextflow on first run — no man
 |---|---|---|
 | `--pipeline` | Pipeline to run: `bacterial-assembly`, `autocycler`, or `metagenomics` | `bacterial-assembly` |
 | `--sample_id` | Sample identifier; scopes outputs to `<outdir>/<sample_id>/` and namespaces contig IDs | required |
-| `--meta_results` | A standalone `wf-metagenomics` output directory (required for `--pipeline metagenomics`) | — |
 | `--long_reads` | Long-read FASTQ (gzipped or uncompressed) | required |
+| `--kraken2_db` | Kraken2 DB directory with `hash.k2d`/`opts.k2d`/`taxo.k2d` (required for `--pipeline metagenomics`) | — |
+| `--kraken2_mem` | Memory request for Kraken2 (≈ DB size; raise for the full Standard DB) | `64 GB` |
 | `--read1` | Paired-end short reads R1 (required for Pilon) | — |
 | `--read2` | Paired-end short reads R2 (required for Pilon) | — |
 | `--assembler` | Assembler: `canu` or `flye` | required |
@@ -123,28 +124,24 @@ nextflow run main.nf \
 
 #### Metagenomics (pathogen identification)
 
-The `metagenomics` pipeline turns an Oxford Nanopore [`wf-metagenomics`](https://github.com/epi2me-labs/wf-metagenomics)
-run into a high-level, pathogen-ID knowledge graph. It is a **two-step** workflow: run
-`wf-metagenomics` on its own (its taxonomic classification is left untouched), then point
-NosoGraph at the output directory to export the `kg/` CSVs.
+The `metagenomics` pipeline classifies long reads against a pre-built Kraken2 database and
+turns the result into a high-level, pathogen-ID knowledge graph — in a **single** Nextflow
+run. The vendored [`kraken2-classify`](modules/vendor/kraken2-classify/) module produces the
+Kraken2 report, which is exported to the `kg/` CSVs.
 
 ```bash
-# Step 1 — run wf-metagenomics standalone (see its own docs), e.g.
-nextflow run epi2me-labs/wf-metagenomics --fastq reads.fastq.gz --sample sample_meta ...
-
-# Step 2 — export the NosoGraph knowledge graph from its outputs
 nextflow run main.nf \
     --pipeline metagenomics \
     --sample_id sample_meta \
-    --meta_results /path/to/wf-metagenomics/output \
     --long_reads reads.fastq.gz \
+    --kraken2_db /path/to/k2_standard \
     --outdir results
 ```
 
-Step 2 reads the per-sample Kraken2 report (`kraken2/<sample_id>.kraken2.report.txt`, filtered to
+It reads the per-sample Kraken2 report (`kraken2/<sample_id>.kraken2.report.txt`, filtered to
 species + genus) and writes a knowledge-graph CSV bundle to
-`results/sample_meta/kg/` (`taxonomic_classification.csv`, `meta_reads.csv`, `taxa.csv`). `--long_reads`
-is optional — when given, the input FASTQ is recorded as a `BioDataFile` node. The resulting subgraph
+`results/sample_meta/kg/` (`taxonomic_classification.csv`, `meta_reads.csv`, `taxa.csv`). The input
+FASTQ given to `--long_reads` is also recorded as a `BioDataFile` node. The resulting subgraph
 (a public NosoGraph extension built on the generic `ProcessRun` pattern) is:
 
 ```mermaid
