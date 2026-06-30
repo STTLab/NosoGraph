@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MPL-2.0
+name: assembly-qc-iden-blast
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  # BLAST+ pinned per the SOW (§6). BLAST+ uses runtime CPU-feature dispatch (it probes
+  # for SSE/AVX at startup and falls back), so 2.16.0 runs on the Xeon E5-2670 v0 (no
+  # AVX2) test server without illegal-instruction faults. Pin to an earlier build if a
+  # future release ever SIGILLs there (same policy as the other vendored conda envs).
+  # NOTE: the SOW refers to a pre-existing parent-repo conda/blast.yaml; none existed in
+  # this repo, so this file establishes the BLAST env at the contracted pin.
+  - blast=2.16.0

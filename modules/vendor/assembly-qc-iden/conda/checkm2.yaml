@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MPL-2.0
+name: assembly-qc-iden-checkm2
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  # CheckM2 pulls a newer python + tensorflow/zlib stack that cannot co-solve with the
+  # QUAST (numpy/perl) or BLAST envs, so it gets its own env — same isolation rationale
+  # as conda/qc.yaml in the bacterial-assembly module. tensorflow is the AVX2-sensitive
+  # piece: conda-forge tensorflow wheels are built without AVX2 and run on the Xeon
+  # E5-2670 v0 (no AVX2). If CheckM2 ever SIGILLs there, pin tensorflow to a known
+  # AVX2-free build.
+  - checkm2
