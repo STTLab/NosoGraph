@@ -4,6 +4,7 @@ nextflow.enable.dsl=2
 include { BACTERIAL_ASSEMBLY } from './modules/vendor/bacterial-assembly/main.nf'
 include { AUTO_AUTOCYCLER }    from './modules/vendor/autocycler/main.nf'
 include { KRAKEN2_CLASSIFY }   from './modules/vendor/kraken2-classify/main.nf'
+include { ASSEMBLY_QC_IDEN }   from './modules/vendor/assembly-qc-iden/main.nf'
 include { KG_EXPORT }          from './modules/local/kg_export.nf'
 include { META_KG_EXPORT }     from './modules/local/meta_kg_export.nf'
 
@@ -39,18 +40,39 @@ workflow {
         // The vendored core does not surface Flye's assembly_info.txt through its emits,
         // so source it from its publishDir once the assembly has completed (Flye only;
         // a NO_FILE sentinel otherwise). CheckM2 is optional (only runs when pilon_iter>0).
-        // Distinct sentinels so the two optional inputs never collide on a shared filename.
-        no_flye_info = file("${projectDir}/assets/NO_FLYE_INFO")
-        no_checkm2   = file("${projectDir}/assets/NO_CHECKM2")
+        // Distinct sentinels so the optional inputs never collide on a shared filename.
+        no_flye_info  = file("${projectDir}/assets/NO_FLYE_INFO")
+        no_checkm2    = file("${projectDir}/assets/NO_CHECKM2")
+        no_blast_iden = file("${projectDir}/assets/NO_BLAST_IDEN")
 
         assembly_v  = BACTERIAL_ASSEMBLY.out.assembly.first()
         flye_info_v = assembly_v.map { fa ->
             def info = file("${params.outdir}/01_assembly/assembly_info.txt")
             info.exists() ? info : no_flye_info
         }
-        checkm2_v = BACTERIAL_ASSEMBLY.out.qc.ifEmpty(no_checkm2).first()
 
-        KG_EXPORT(assembly_v, flye_info_v, checkm2_v)
+        // --- QC + identification enrichment (assembly-qc-iden, vendored & untouched) ---
+        // Active when --blast_db is set (its presence is the toggle, so plain assembly runs
+        // are never forced to ship a 100GB+ BLAST DB). Runs QUAST/CheckM2/BLAST on the final
+        // assembly; this CheckM2 supersedes the bacterial-assembly QC, and BLAST adds a
+        // per-contig best-hit accession to the KG (Contig.accession). QUAST uses the same
+        // long reads for mapping stats; --reference is optional.
+        if (params.blast_db) {
+            if (!params.checkm2_db)
+                error "QC+identification enrichment (--blast_db) also requires --checkm2_db"
+            qc_iden_nofile = file("${projectDir}/modules/vendor/assembly-qc-iden/assets/NO_FILE")
+            qc_reads_ch = channel.fromPath(params.long_reads, checkIfExists: false)
+            qc_ref_ch   = channel.fromPath(params.reference ?: qc_iden_nofile, checkIfExists: false)
+
+            ASSEMBLY_QC_IDEN(assembly_v, qc_reads_ch, qc_ref_ch)
+            checkm2_v    = ASSEMBLY_QC_IDEN.out.checkm2
+            blast_iden_v = ASSEMBLY_QC_IDEN.out.blast
+        } else {
+            checkm2_v    = BACTERIAL_ASSEMBLY.out.qc.ifEmpty(no_checkm2).first()
+            blast_iden_v = channel.value(no_blast_iden)
+        }
+
+        KG_EXPORT(assembly_v, flye_info_v, checkm2_v, blast_iden_v)
 
     } else if (params.pipeline == 'metagenomics') {
         // Single-step model: the vendored kraken2-classify module classifies the reads

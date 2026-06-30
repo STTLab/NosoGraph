@@ -13,7 +13,8 @@ Emitted (under ``<outdir>/kg/``):
   sample.csv          — Sample node
   assembly.csv        — Assembly node (linked to Sample; CheckM2 completeness/contamination)
   biodata_files.csv   — BioDataFile nodes (input FASTQ + consensus FASTA)
-  contigs.csv         — Contig nodes (FASTA joined with Flye assembly_info.txt)
+  contigs.csv         — Contig nodes (FASTA joined with Flye assembly_info.txt; accession
+                        from the assembly-qc-iden BLAST identification table when present)
 
 Contig IDs are namespaced ``{sample_id}:{contig_name}`` so they are globally unique
 across samples (Flye restarts numbering from contig_1 every run). Per STTLab
@@ -75,7 +76,26 @@ def _read_checkm2(checkm2_path: Path | None):
     return "", ""
 
 
-def export_assembly_and_contigs(kg_dir, sample_id, assembler, fasta, flye_info, checkm2):
+def _read_blast_iden(iden_path: Path | None) -> dict:
+    """Map contig name -> best-hit accession from an assembly-qc-iden
+    contig_identification.tsv (§7.3). Returns {} when the file is absent. The TSV's
+    ``contig`` column is the FASTA header token (the same key as Contig.name), so the
+    join is exact. No-hit contigs carry an empty accession and are simply skipped.
+    """
+    if iden_path is None or not Path(iden_path).exists():
+        return {}
+    acc_by_contig = {}
+    with open(iden_path, encoding="utf-8", newline="") as f:
+        for row in csv.DictReader(f, delimiter="\t"):
+            contig = (row.get("contig") or "").strip()
+            accession = (row.get("accession") or "").strip()
+            if contig and accession:
+                acc_by_contig[contig] = accession
+    return acc_by_contig
+
+
+def export_assembly_and_contigs(kg_dir, sample_id, assembler, fasta, flye_info, checkm2,
+                                blast_iden=None):
     assembly_id = f"{sample_id}_assembly"
     created_at = datetime.now(timezone.utc).date().isoformat()
     completeness, contamination = _read_checkm2(checkm2)
@@ -94,6 +114,7 @@ def export_assembly_and_contigs(kg_dir, sample_id, assembler, fasta, flye_info, 
     )
 
     flye_info_path = str(flye_info) if flye_info and Path(flye_info).exists() else None
+    acc_by_contig = _read_blast_iden(blast_iden)
     contig_rows = []
     for rec in parse_assembly(str(fasta), flye_info_path):
         name = rec["name"]
@@ -101,7 +122,9 @@ def export_assembly_and_contigs(kg_dir, sample_id, assembler, fasta, flye_info, 
             "contig_id":          f"{sample_id}:{name}",
             "assembly_id":        assembly_id,
             "name":               name,
-            "accession":          "",  # de novo assembly — no external accession
+            # BLAST best-hit accession from assembly-qc-iden (§7.3); "" when no DB ran
+            # or the contig had no hit (de novo assembly has no intrinsic accession).
+            "accession":          acc_by_contig.get(name, ""),
             "length":             _blank(rec["length"]),
             "coverage":           _blank(rec["coverage"]),
             "is_circular":        _bool_str(rec["is_circular"]),
@@ -159,6 +182,8 @@ def main():
     p.add_argument("--fastq", required=True, help="Input long-read FASTQ")
     p.add_argument("--flye-info", default="", help="Flye assembly_info.txt (optional)")
     p.add_argument("--checkm2", default="", help="CheckM2 results dir or quality_report.tsv (optional)")
+    p.add_argument("--blast-iden", default="",
+                   help="assembly-qc-iden contig_identification.tsv (optional; fills Contig.accession)")
     p.add_argument("--outdir", default=".", help="Output dir; CSVs are written to <outdir>/kg/")
     args = p.parse_args()
 
@@ -167,10 +192,11 @@ def main():
 
     flye_info = args.flye_info or None
     checkm2 = Path(args.checkm2) if args.checkm2 else None
+    blast_iden = Path(args.blast_iden) if args.blast_iden else None
 
     export_sample(kg_dir, args.sample)
     assembly_id = export_assembly_and_contigs(
-        kg_dir, args.sample, args.assembler, args.fasta, flye_info, checkm2
+        kg_dir, args.sample, args.assembler, args.fasta, flye_info, checkm2, blast_iden
     )
     export_biodata_files(kg_dir, args.sample, assembly_id, args.fastq, args.fasta)
 
