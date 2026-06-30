@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: MPL-2.0
+name: assembly-qc-iden-quast
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  # QUAST gets its own env: its numpy/matplotlib/perl stack pulls a different python
+  # than CheckM2's tensorflow stack and BLAST, and must not be co-solved with them.
+  # quast 5.2.0 is a pure-python/perl + C helper tool with no AVX2 codepath, so it runs
+  # on the Xeon E5-2670 v0 (no AVX2) test server. Pin to an AVX2-safe build if a future
+  # release ever SIGILLs there (same policy as the other vendored conda envs).
+  - quast=5.2.0
