@@ -27,10 +27,16 @@ process QUAST {
     path "versions/quast.txt",    emit: versions
 
     script:
-    def readflag = reads.name != 'NO_FILE'
+    // Sentinel check on the true basename. Under stageAs with a subdir (e.g.
+    // 'optional_ref/*'), Nextflow >=26.04 returns the subdir-qualified staged path from
+    // .name ('optional_ref/NO_FILE'), so a bare `.name != 'NO_FILE'` never matches the
+    // sentinel and QUAST would be handed an empty reference. Take the last path segment.
+    def reads_base = reads.name.tokenize('/')[-1]
+    def ref_base   = reference.name.tokenize('/')[-1]
+    def readflag = reads_base != 'NO_FILE'
         ? (params.tech == 'pacbio' ? "--pacbio ${reads}" : "--nanopore ${reads}")
         : ''
-    def refflag = reference.name != 'NO_FILE' ? "-r ${reference}" : ''
+    def refflag = ref_base != 'NO_FILE' ? "-r ${reference}" : ''
     """
     quast.py \\
         -o quast_results \\
