@@ -1,0 +1,3 @@
+uri,file_type,compressed,sha256,assembly_id,sample_id
+data/CI16.long.fq.gz,FASTQ,true,,,CI16
+assemblies/CI16.fasta,FASTA,false,cfd557d196a77d3eb2c3ba8ab2f9484749980a8869abd4acc597db45715eac34,CI16_assembly,CI16

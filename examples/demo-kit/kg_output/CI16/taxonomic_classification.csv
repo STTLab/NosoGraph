@@ -1,0 +1,2 @@
+process_run_id,sample_id,tool,created_at,classified_reads,unclassified_reads,fastq_uri
+CI16_taxclass,CI16,kraken2,2026-06-30,59482,8486,data/CI16.long.fq.gz

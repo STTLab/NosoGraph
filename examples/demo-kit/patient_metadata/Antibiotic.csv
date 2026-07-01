@@ -1,0 +1,5 @@
+antibiotic_id,name,abbreviation,class,description
+AB01,Piperacillin/Tazobactam,TZP,Penicillin combination,Broad-spectrum beta-lactam + inhibitor
+AB02,Ciprofloxacin,CIP,Fluoroquinolone,Broad-spectrum fluoroquinolone
+AB03,Trimethoprim/Sulfamethoxazole,SXT,Folate pathway inhibitor,Combination antifolate
+AB04,Vancomycin,VAN,Glycopeptide,Gram-positive / some Chryseobacterium activity
