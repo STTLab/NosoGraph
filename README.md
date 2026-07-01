@@ -70,6 +70,8 @@ Conda environments are created automatically by Nextflow on first run — no man
 | `--long_reads` | Long-read FASTQ (gzipped or uncompressed) | required |
 | `--kraken2_db` | Kraken2 DB directory with `hash.k2d`/`opts.k2d`/`taxo.k2d` (required for `--pipeline metagenomics`) | — |
 | `--kraken2_mem` | Memory request for Kraken2 (≈ DB size; raise for the full Standard DB) | `64 GB` |
+| `--kraken2_z_min` | `taxa_json` z-score cutoff; taxa below fold into an `"Other"` bucket | `-1.0` |
+| `--kraken2_min_taxa` | Keep all taxa (no bucketing) when fewer than this many | `3` |
 | `--read1` | Paired-end short reads R1 (required for Pilon) | — |
 | `--read2` | Paired-end short reads R2 (required for Pilon) | — |
 | `--assembler` | Assembler: `canu` or `flye` | required |
@@ -140,19 +142,26 @@ nextflow run main.nf \
 
 It reads the per-sample Kraken2 report (`kraken2/<sample_id>.kraken2.report.txt`, filtered to
 species + genus) and writes a knowledge-graph CSV bundle to
-`results/sample_meta/kg/` (`taxonomic_classification.csv`, `meta_reads.csv`, `taxa.csv`). The input
+`results/sample_meta/kg/` (`taxonomic_classification.csv`, `meta_reads.csv`). The input
 FASTQ given to `--long_reads` is also recorded as a `BioDataFile` node. The resulting subgraph
 (a public NosoGraph extension built on the generic `ProcessRun` pattern) is:
 
 ```mermaid
 graph LR
-  S[Sample] -->|CLASSIFIED_IN| TC["ProcessRun:TaxonomicClassification"]
+  S[Sample] -->|CLASSIFIED_IN| TC["ProcessRun:TaxonomicClassification<br/>(taxa_json)"]
   TC -->|CLASSIFIED_FROM| F["BioDataFile {FASTQ}"]
-  TC -->|"IDENTIFIED {read_count, abundance, rank}"| O["Organism {taxid}"]
 ```
 
-Import these CSVs with **LOAD DATA** steps `17`–`19`, then run the **QUERIES → Pathogens detected per
-sample** template (see [NosoGraph knowledge graph](#nosograph-knowledge-graph)).
+The identified taxa are **not** modelled as `Organism` nodes: Kraken2 output is an untrusted,
+per-run classification (produced before the curated DB is built), and it isn't meant to be
+traversed in the graph. Instead they ride along as a single JSON-string property `taxa_json`
+on the `TaxonomicClassification` node — a read-set QC glance, sorted by abundance and
+pre-filtered with an adaptive z-score bucket (taxa below `--kraken2_z_min` fold into an
+`"Other"` row; filtering is skipped when there are fewer than `--kraken2_min_taxa` taxa).
+Recover rows in Neo4j Browser with `apoc.convert.fromJsonList`.
+
+Import these CSVs with **LOAD DATA** steps `17`–`18`, then run the **QUERIES → Pathogens detected per
+sample** template (unpacks `taxa_json`; see [NosoGraph knowledge graph](#nosograph-knowledge-graph)).
 
 ---
 

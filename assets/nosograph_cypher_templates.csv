@@ -197,7 +197,7 @@ CALL {
   MERGE (rg)-[:HAS_FEATURE]->(f)
   MERGE (v)-[:AFFECTS]->(f)
 } IN TRANSACTIONS OF 500 ROWS;",21,2,false
-17 Taxonomic Classification (pipeline),"Replace <sample_id>. Sample -[:CLASSIFIED_IN]-> (:ProcessRun:TaxonomicClassification). PUBLIC EXTENSION: the :TaxonomicClassification ProcessRun subtype is a NosoGraph metagenomics extension (not in the core nosograph lib schema).",":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/taxonomic_classification.csv' AS rec
+17 Taxonomic Classification (pipeline),"Replace <sample_id>. Sample -[:CLASSIFIED_IN]-> (:ProcessRun:TaxonomicClassification). Identified taxa ride along as the tc.taxa_json QC blob (untrusted per-run classification, not modelled as Organism nodes). PUBLIC EXTENSION: the :TaxonomicClassification ProcessRun subtype is a NosoGraph metagenomics extension (not in the core nosograph lib schema).",":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/taxonomic_classification.csv' AS rec
 CALL {
   WITH rec
   MERGE (s:Sample {sample_id: rec.sample_id})
@@ -206,7 +206,8 @@ CALL {
                   tc.created_at = CASE WHEN rec.created_at IS NOT NULL AND rec.created_at <> '' THEN date(rec.created_at) ELSE NULL END
   SET tc.tool = rec.tool,
       tc.classified_reads   = CASE WHEN rec.classified_reads   <> '' THEN toInteger(rec.classified_reads)   ELSE NULL END,
-      tc.unclassified_reads = CASE WHEN rec.unclassified_reads <> '' THEN toInteger(rec.unclassified_reads) ELSE NULL END
+      tc.unclassified_reads = CASE WHEN rec.unclassified_reads <> '' THEN toInteger(rec.unclassified_reads) ELSE NULL END,
+      tc.taxa_json = rec.taxa_json
   MERGE (s)-[:CLASSIFIED_IN]->(tc)
 } IN TRANSACTIONS OF 500 ROWS;",29,2,false
 18 BioDataFile FASTQ (metagenomics),"Replace <sample_id>. TaxonomicClassification -[:CLASSIFIED_FROM]-> BioDataFile{FASTQ}. PUBLIC EXTENSION (NosoGraph metagenomics; rows are header-only when the run was launched without input reads).",":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/meta_reads.csv' AS rec
@@ -219,18 +220,6 @@ CALL {
   MATCH (tc:TaxonomicClassification {process_run_id: rec.process_run_id})
   MERGE (tc)-[:CLASSIFIED_FROM]->(f)
 } IN TRANSACTIONS OF 500 ROWS;",30,2,false
-19 Taxa identified (pipeline),"Replace <sample_id>. MERGE Organism{taxid}; TaxonomicClassification -[:IDENTIFIED {read_count, abundance, rank}]-> Organism (species S + genus G). PUBLIC EXTENSION (NosoGraph metagenomics).",":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/taxa.csv' AS rec
-CALL {
-  WITH rec
-  MERGE (o:Organism {taxid: rec.taxid})
-  SET o.sciname = rec.sciname
-  WITH o, rec
-  MATCH (tc:TaxonomicClassification {process_run_id: rec.process_run_id})
-  MERGE (tc)-[i:IDENTIFIED]->(o)
-  SET i.read_count = CASE WHEN rec.read_count <> '' THEN toInteger(rec.read_count) ELSE NULL END,
-      i.abundance  = CASE WHEN rec.abundance  <> '' THEN toFloat(rec.abundance)    ELSE NULL END,
-      i.rank = rec.rank
-} IN TRANSACTIONS OF 500 ROWS;",31,2,false
 Node & relationship counts,Sanity check after loading.,"MATCH (n) RETURN labels(n)[0] AS label, count(n) AS count ORDER BY count DESC;",22,3,false
 Patient -> Specimen -> Sample -> Assembly -> Contig,The clinical-to-genomic spine for each sequenced patient.,"MATCH (p:Patient)<-[:COLLECTED_FROM]-(sp:Specimen)<-[:DERIVED_FROM]-(s:Sample)
       -[:HAS_ASSEMBLY]->(a:Assembly)-[:PRODUCE]->(:BioDataFile)-[:HAS_CONTIG]->(c:Contig)
@@ -250,10 +239,11 @@ Variants per gene,High-impact variant load per locus.,"MATCH (:VariantCallingRun
 RETURN f.locus_tag AS gene, count(v) AS variants,
        collect(DISTINCT v.IMPACT) AS impacts
 ORDER BY variants DESC;",26,3,false
-Pathogens detected per sample,"Species-level taxa identified per sample by the metagenomics classification (rank S), ranked by abundance.","MATCH (s:Sample)-[:CLASSIFIED_IN]->(:TaxonomicClassification)-[i:IDENTIFIED]->(o:Organism)
-WHERE i.rank = 'S'
-RETURN s.sample_id AS sample, o.sciname AS organism, o.taxid AS taxid,
-       i.read_count AS reads, i.abundance AS abundance
-ORDER BY sample, i.abundance DESC;",32,3,false
+Pathogens detected per sample,"Metagenomics read-set QC: unpack each sample's tc.taxa_json blob (species S + genus G, plus an 'Other' bucket) into rows, ranked by abundance. taxa_json is a QC glance, not a curated Organism subgraph.","MATCH (s:Sample)-[:CLASSIFIED_IN]->(tc:TaxonomicClassification)
+WHERE tc.taxa_json IS NOT NULL AND tc.taxa_json <> ''
+UNWIND apoc.convert.fromJsonList(tc.taxa_json) AS taxon
+RETURN s.sample_id AS sample, taxon.sciname AS organism, taxon.taxid AS taxid,
+       taxon.rank AS rank, taxon.read_count AS reads, taxon.abundance AS abundance
+ORDER BY sample, abundance DESC;",32,3,false
 Schema visualization,Render the live node/relationship schema.,CALL db.schema.visualization();,27,4,false
 Delete all data,WARNING: removes every node and relationship in the current database.,MATCH (n) CALL { WITH n DETACH DELETE n } IN TRANSACTIONS OF 1000 ROWS;,28,4,false
