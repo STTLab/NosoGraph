@@ -21,7 +21,9 @@ CREATE CONSTRAINT feature_locus   IF NOT EXISTS FOR (n:Feature)         REQUIRE 
 CREATE CONSTRAINT seqrun_id       IF NOT EXISTS FOR (n:SequencingRun)   REQUIRE n.run_id IS UNIQUE;
 CREATE CONSTRAINT vcr_id          IF NOT EXISTS FOR (n:VariantCallingRun) REQUIRE n.process_run_id IS UNIQUE;
 CREATE CONSTRAINT variant_key     IF NOT EXISTS FOR (n:Variant) REQUIRE (n.REF_ACC, n.POS, n.REF, n.ALT, n.hgvs_c, n.hgvs_p) IS NODE KEY;
-CREATE CONSTRAINT tcr_id          IF NOT EXISTS FOR (n:TaxonomicClassification) REQUIRE n.process_run_id IS UNIQUE;",5,1,false
+CREATE CONSTRAINT tcr_id          IF NOT EXISTS FOR (n:TaxonomicClassification) REQUIRE n.process_run_id IS UNIQUE;
+CREATE CONSTRAINT antibiotic_class IF NOT EXISTS FOR (n:AntibioticClass) REQUIRE n.name IS UNIQUE;
+CREATE CONSTRAINT snomed_sctid     IF NOT EXISTS FOR (n:SNOMED)          REQUIRE n.sctid IS NODE KEY;",5,1,false
 01 Departments,Hand-authored clinical CSV in the Neo4j import directory root.,":auto LOAD CSV WITH HEADERS FROM 'file:///Departments.csv' AS rec
 CALL {
   WITH rec
@@ -210,7 +212,7 @@ CALL {
       tc.taxa_json = rec.taxa_json
   MERGE (s)-[:CLASSIFIED_IN]->(tc)
 } IN TRANSACTIONS OF 500 ROWS;",29,2,false
-18 BioDataFile FASTQ (metagenomics),"Replace <sample_id>. TaxonomicClassification -[:CLASSIFIED_FROM]-> BioDataFile{FASTQ}. PUBLIC EXTENSION (NosoGraph metagenomics; rows are header-only when the run was launched without input reads).",":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/meta_reads.csv' AS rec
+18 BioDataFile FASTQ (metagenomics),Replace <sample_id>. TaxonomicClassification -[:CLASSIFIED_FROM]-> BioDataFile{FASTQ}. PUBLIC EXTENSION (NosoGraph metagenomics; rows are header-only when the run was launched without input reads).,":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/meta_reads.csv' AS rec
 WITH rec WHERE rec.file_type = 'FASTQ' AND rec.uri IS NOT NULL AND rec.uri <> ''
 CALL {
   WITH rec
@@ -247,3 +249,61 @@ RETURN s.sample_id AS sample, taxon.sciname AS organism, taxon.taxid AS taxid,
 ORDER BY sample, abundance DESC;",32,3,false
 Schema visualization,Render the live node/relationship schema.,CALL db.schema.visualization();,27,4,false
 Delete all data,WARNING: removes every node and relationship in the current database.,MATCH (n) CALL { WITH n DETACH DELETE n } IN TRANSACTIONS OF 1000 ROWS;,28,4,false
+18 Antibiotic classes,AntibioticClass nodes; Antibiotic-[:BELONGS_TO]->AntibioticClass.,":auto LOAD CSV WITH HEADERS FROM 'file:///AntibioticClasses.csv' AS rec
+CALL { WITH rec
+  MERGE (c:AntibioticClass {name: rec.class_name})
+  WITH c, rec
+  MATCH (ab:Antibiotic {antibiotic_id: rec.antibiotic_id})
+  MERGE (ab)-[:BELONGS_TO]->(c)
+} IN TRANSACTIONS OF 500 ROWS;",33,2,false
+19 CBC (haematology),Complete blood count as :LabResult:CBC; Admission-[:HAS_CBC]->CBC. Analyte columns become node properties.,":auto LOAD CSV WITH HEADERS FROM 'file:///CBC.csv' AS rec
+CALL { WITH rec
+  MERGE (c:LabResult:CBC {cbc_id: rec.cbc_id})
+  SET c.result_type = 'CBC', c += apoc.map.clean(rec, ['cbc_id','admission_id','patient_id'], ['',null])
+  WITH c, rec
+  MATCH (a:Admission {admission_id: rec.admission_id})
+  MERGE (a)-[:HAS_CBC]->(c)
+} IN TRANSACTIONS OF 500 ROWS;",34,2,false
+20 Terminology concepts (SNOMED CT),SNOMED concept nodes; each gets :SNOMED plus a semantic sub-label (Disorder/Finding/Situation/Device/Morphology).,":auto LOAD CSV WITH HEADERS FROM 'file:///Terminology.csv' AS rec
+CALL { WITH rec
+  MERGE (c:SNOMED {sctid: rec.sctid})
+  SET c.preferred_term = rec.preferred_term,
+      c.fully_specified_name = rec.fully_specified_name,
+      c.semantic_tag = rec.semantic_tag
+  FOREACH (_ IN CASE WHEN rec.concept_label = 'Disorder'   THEN [1] ELSE [] END | SET c:Disorder)
+  FOREACH (_ IN CASE WHEN rec.concept_label = 'Finding'    THEN [1] ELSE [] END | SET c:Finding)
+  FOREACH (_ IN CASE WHEN rec.concept_label = 'Situation'  THEN [1] ELSE [] END | SET c:Situation)
+  FOREACH (_ IN CASE WHEN rec.concept_label = 'Device'     THEN [1] ELSE [] END | SET c:Device)
+  FOREACH (_ IN CASE WHEN rec.concept_label = 'Morphology' THEN [1] ELSE [] END | SET c:Morphology)
+} IN TRANSACTIONS OF 500 ROWS;",35,2,false
+21 Patient conditions,"Patient-level SNOMED links: HAS_DISORDER (comorbidities), HAS_CLINICAL_FINDING (findings incl. outcome), HAS_CLINICAL_HISTORY.",":auto LOAD CSV WITH HEADERS FROM 'file:///PatientConditions.csv' AS rec
+CALL { WITH rec
+  MATCH (p:Patient {patient_id: rec.patient_id})
+  MATCH (c:SNOMED {sctid: rec.sctid})
+  FOREACH (_ IN CASE WHEN rec.relationship = 'HAS_DISORDER'         THEN [1] ELSE [] END | MERGE (p)-[:HAS_DISORDER]->(c))
+  FOREACH (_ IN CASE WHEN rec.relationship = 'HAS_CLINICAL_FINDING' THEN [1] ELSE [] END | MERGE (p)-[:HAS_CLINICAL_FINDING]->(c))
+  FOREACH (_ IN CASE WHEN rec.relationship = 'HAS_CLINICAL_HISTORY' THEN [1] ELSE [] END | MERGE (p)-[:HAS_CLINICAL_HISTORY]->(c))
+} IN TRANSACTIONS OF 500 ROWS;",36,2,false
+22 Admission conditions,Admission-level SNOMED links: HAS_PRINCIPAL_DIAGNOSIS and USE_DEVICE.,":auto LOAD CSV WITH HEADERS FROM 'file:///AdmissionConditions.csv' AS rec
+CALL { WITH rec
+  MATCH (a:Admission {admission_id: rec.admission_id})
+  MATCH (c:SNOMED {sctid: rec.sctid})
+  FOREACH (_ IN CASE WHEN rec.relationship = 'HAS_PRINCIPAL_DIAGNOSIS' THEN [1] ELSE [] END | MERGE (a)-[:HAS_PRINCIPAL_DIAGNOSIS]->(c))
+  FOREACH (_ IN CASE WHEN rec.relationship = 'USE_DEVICE'              THEN [1] ELSE [] END | MERGE (a)-[:USE_DEVICE]->(c))
+} IN TRANSACTIONS OF 500 ROWS;",37,2,false
+VISUALIZATION,,,38,0,true
+Clinical backbone,"Patient -> Admission -> Ward -> Department, with the specimen collected from each patient.","MATCH path = (:Department)<-[:IN_DEPARTMENT]-(:Ward)<-[:ADMITTED_TO]-(:Admission)<-[:HAS_ADMISSION]-(p:Patient)
+OPTIONAL MATCH collected = (p)<-[:COLLECTED_FROM]-(:Specimen)
+RETURN path, collected;",39,38,false
+Specimen -> susceptibility,"Specimen -> isolate, and the antibiotics it was tested against with their drug class.","MATCH path = (:AntibioticClass)<-[:BELONGS_TO]-(:Antibiotic)<-[:AGAINST]-(:LabResult:BacterialCulture)<-[:TESTED_FOR]-(sp:Specimen)
+OPTIONAL MATCH isolate = (sp)<-[:DERIVED_FROM]-(:Sample)
+RETURN path, isolate;",40,38,false
+Patient conditions (SNOMED),"A patient's comorbidities / findings / history, plus the admission's principal diagnosis and devices.","MATCH pc = (p:Patient)-[:HAS_DISORDER|HAS_CLINICAL_FINDING|HAS_CLINICAL_HISTORY]->(:SNOMED)
+OPTIONAL MATCH ac = (p)-[:HAS_ADMISSION]->(:Admission)-[:HAS_PRINCIPAL_DIAGNOSIS|USE_DEVICE]->(:SNOMED)
+RETURN pc, ac;",41,38,false
+Clinical-genomic spine,Patient context all the way to the sequenced genome assembly.,"MATCH spine = (:Patient)<-[:COLLECTED_FROM]-(:Specimen)<-[:DERIVED_FROM]-(:Sample)-[:HAS_ASSEMBLY]->(:Assembly)
+RETURN spine;",42,38,false
+Variants on features,Variant-calling runs and the genome features they affect.,"MATCH v = (:VariantCallingRun)-[:CALLED]->(:Variant)-[:AFFECTS]->(:Feature)
+RETURN v LIMIT 300;",43,38,false
+"One patient, everything",The full ego-network around a single patient (edit the patient_id).,"MATCH graph = (:Patient {patient_id: 'P001'})-[*1..3]-(neighbour)
+RETURN graph;",44,38,false

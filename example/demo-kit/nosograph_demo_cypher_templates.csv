@@ -1,0 +1,256 @@
+name,description,query,id,parentId,isFolder
+NosoGraph demo-kit,,,0,,true
+SETUP,,,1,0,true
+LOAD DATA — clinical,,,2,0,true
+LOAD DATA — terminology (SNOMED),,,3,0,true
+LOAD DATA — genomics,,,4,0,true
+QUERIES,,,5,0,true
+VISUALIZATION — basic relations,,,6,0,true
+00 Constraints,Uniqueness/key constraints. Run once before loading.,"CREATE CONSTRAINT department_id IF NOT EXISTS FOR (n:Department) REQUIRE n.department_id IS UNIQUE;
+CREATE CONSTRAINT ward_id       IF NOT EXISTS FOR (n:Ward)       REQUIRE n.ward_id IS UNIQUE;
+CREATE CONSTRAINT patient_id    IF NOT EXISTS FOR (n:Patient)    REQUIRE n.patient_id IS UNIQUE;
+CREATE CONSTRAINT admission_id  IF NOT EXISTS FOR (n:Admission)  REQUIRE n.admission_id IS UNIQUE;
+CREATE CONSTRAINT specimen_id   IF NOT EXISTS FOR (n:Specimen)   REQUIRE n.specimen_id IS UNIQUE;
+CREATE CONSTRAINT sample_id     IF NOT EXISTS FOR (n:Sample)     REQUIRE n.sample_id IS UNIQUE;
+CREATE CONSTRAINT lab_result_id IF NOT EXISTS FOR (n:LabResult)  REQUIRE n.lab_id IS UNIQUE;
+CREATE CONSTRAINT cbc_id        IF NOT EXISTS FOR (n:LabResult)  REQUIRE n.cbc_id IS UNIQUE;
+CREATE CONSTRAINT antibiotic_id IF NOT EXISTS FOR (n:Antibiotic) REQUIRE n.antibiotic_id IS UNIQUE;
+CREATE CONSTRAINT antibiotic_class IF NOT EXISTS FOR (n:AntibioticClass) REQUIRE n.name IS UNIQUE;
+CREATE CONSTRAINT organism_taxid IF NOT EXISTS FOR (n:Organism)  REQUIRE n.taxid IS UNIQUE;
+CREATE CONSTRAINT assembly_id   IF NOT EXISTS FOR (n:Assembly)   REQUIRE n.assembly_id IS UNIQUE;
+CREATE CONSTRAINT gene_name     IF NOT EXISTS FOR (n:Gene)       REQUIRE n.name IS UNIQUE;
+CREATE CONSTRAINT biodata_uri   IF NOT EXISTS FOR (n:BioDataFile) REQUIRE n.uri IS UNIQUE;
+CREATE CONSTRAINT feature_locus IF NOT EXISTS FOR (n:Feature)    REQUIRE n.locus_tag IS UNIQUE;
+CREATE CONSTRAINT vcr_id        IF NOT EXISTS FOR (n:VariantCallingRun) REQUIRE n.process_run_id IS UNIQUE;
+CREATE CONSTRAINT variant_id    IF NOT EXISTS FOR (n:Variant)    REQUIRE n.variant_id IS UNIQUE;
+CREATE CONSTRAINT snomed_sctid  IF NOT EXISTS FOR (n:SNOMED)     REQUIRE n.sctid IS NODE KEY;",7,1,false
+01 Departments,Department reference nodes.,":auto LOAD CSV WITH HEADERS FROM 'file:///clinical/Departments.csv' AS rec
+CALL { WITH rec
+  MERGE (d:Department {department_id: rec.department_id})
+  SET d.name = rec.name, d.description = rec.description
+} IN TRANSACTIONS OF 500 ROWS;",8,2,false
+02 Wards,"Ward nodes, linked to their Department.",":auto LOAD CSV WITH HEADERS FROM 'file:///clinical/Wards.csv' AS rec
+CALL { WITH rec
+  MERGE (w:Ward {ward_id: rec.ward_id})
+  SET w.name = rec.name, w.ward_type = rec.ward_type,
+      w.description = rec.description, w.department_id = rec.department_id
+  WITH w, rec WHERE rec.department_id IS NOT NULL AND rec.department_id <> ''
+  MATCH (d:Department {department_id: rec.department_id})
+  MERGE (w)-[:BELONGS_TO]->(d)
+} IN TRANSACTIONS OF 500 ROWS;",9,2,false
+03 Patients,"Patient nodes (de-identified: sex, age, outcome).",":auto LOAD CSV WITH HEADERS FROM 'file:///clinical/Patients.csv' AS rec
+CALL { WITH rec
+  MERGE (p:Patient {patient_id: rec.patient_id})
+  SET p.sex = rec.sex,
+      p.age_years = CASE WHEN rec.age_years <> '' THEN toInteger(rec.age_years) ELSE NULL END,
+      p.deceased  = (rec.deceased = 'true')
+} IN TRANSACTIONS OF 500 ROWS;",10,2,false
+04 Admissions,Admission nodes; Patient-[:HAS_ADMISSION]->Admission-[:ADMITTED_TO]->Ward.,":auto LOAD CSV WITH HEADERS FROM 'file:///clinical/Admissions.csv' AS rec
+CALL { WITH rec
+  MERGE (a:Admission {admission_id: rec.admission_id})
+  SET a.length_of_stay = CASE WHEN rec.length_of_stay <> '' THEN toInteger(rec.length_of_stay) ELSE NULL END
+  WITH a, rec
+  MATCH (p:Patient {patient_id: rec.patient_id})
+  MERGE (p)-[:HAS_ADMISSION]->(a)
+  WITH a, rec WHERE rec.ward_id IS NOT NULL AND rec.ward_id <> ''
+  MATCH (w:Ward {ward_id: rec.ward_id})
+  MERGE (a)-[:ADMITTED_TO]->(w)
+} IN TRANSACTIONS OF 500 ROWS;",11,2,false
+05 Antibiotics,Antibiotic reference nodes.,":auto LOAD CSV WITH HEADERS FROM 'file:///clinical/Antibiotic.csv' AS rec
+CALL { WITH rec
+  MERGE (ab:Antibiotic {antibiotic_id: rec.antibiotic_id})
+  SET ab.name = rec.name, ab.abbreviation = rec.abbreviation,
+      ab.class = rec.class, ab.description = rec.description
+} IN TRANSACTIONS OF 500 ROWS;",12,2,false
+05b Antibiotic classes,AntibioticClass nodes; Antibiotic-[:BELONGS_TO]->AntibioticClass.,":auto LOAD CSV WITH HEADERS FROM 'file:///clinical/AntibioticClasses.csv' AS rec
+CALL { WITH rec
+  MERGE (c:AntibioticClass {name: rec.class_name})
+  WITH c, rec
+  MATCH (ab:Antibiotic {antibiotic_id: rec.antibiotic_id})
+  MERGE (ab)-[:BELONGS_TO]->(c)
+} IN TRANSACTIONS OF 500 ROWS;",13,2,false
+06 Organisms,"Organism (species) nodes, keyed by NCBI taxid.",":auto LOAD CSV WITH HEADERS FROM 'file:///clinical/Organisms.csv' AS rec
+CALL { WITH rec
+  MERGE (o:Organism {taxid: rec.taxid})
+  SET o.sciname = rec.sciname, o.snomed_sctid = rec.snomed_sctid
+} IN TRANSACTIONS OF 500 ROWS;",14,2,false
+07 Specimens,Specimen nodes; Specimen-[:COLLECTED_FROM]->Patient.,":auto LOAD CSV WITH HEADERS FROM 'file:///clinical/Specimens.csv' AS rec
+CALL { WITH rec
+  MERGE (s:Specimen {specimen_id: rec.specimen_id})
+  SET s.specimen_type = rec.specimen_type, s.specimen_class = rec.specimen_class,
+      s.category = rec.category,
+      s.collection_date = CASE WHEN rec.collection_date <> '' THEN date(rec.collection_date) ELSE NULL END
+  WITH s, rec WHERE rec.patient_id IS NOT NULL AND rec.patient_id <> ''
+  MATCH (p:Patient {patient_id: rec.patient_id})
+  MERGE (s)-[:COLLECTED_FROM]->(p)
+} IN TRANSACTIONS OF 500 ROWS;",15,2,false
+08 Samples,"Sample (isolate) nodes; DERIVED_FROM Specimen, IDENTIFIED_AS Organism.",":auto LOAD CSV WITH HEADERS FROM 'file:///clinical/Samples.csv' AS rec
+CALL { WITH rec
+  MERGE (s:Sample {sample_id: rec.sample_id})
+  WITH s, rec
+  MATCH (sp:Specimen {specimen_id: rec.specimen_id})
+  MERGE (s)-[:DERIVED_FROM]->(sp)
+  WITH s, rec WHERE rec.organism_taxid IS NOT NULL AND rec.organism_taxid <> ''
+  MATCH (o:Organism {taxid: rec.organism_taxid})
+  MERGE (s)-[:IDENTIFIED_AS]->(o)
+} IN TRANSACTIONS OF 500 ROWS;",16,2,false
+09 MIC / AST results,Antibiotic susceptibility as :LabResult:BacterialCulture; Specimen-[:TESTED_FOR]->LabResult-[:AGAINST]->Antibiotic.,":auto LOAD CSV WITH HEADERS FROM 'file:///clinical/LabResults.csv' AS rec
+CALL { WITH rec
+  MERGE (lr:LabResult:BacterialCulture:MIC {lab_id: rec.lab_id})
+  SET lr.result_type = rec.result_type,
+      lr.test_date = CASE WHEN rec.test_date <> '' THEN date(rec.test_date) ELSE NULL END,
+      lr.value = rec.value, lr.unit = rec.unit, lr.notes = rec.notes,
+      lr.interpretation = rec.interpretation,
+      lr.organism_taxid = rec.organism_taxid, lr.antibiotic_id = rec.antibiotic_id
+  WITH lr, rec
+  MATCH (s:Specimen {specimen_id: rec.specimen_id})
+  MERGE (s)-[:TESTED_FOR]->(lr)
+  WITH lr, rec WHERE rec.antibiotic_id IS NOT NULL AND rec.antibiotic_id <> ''
+  MATCH (ab:Antibiotic {antibiotic_id: rec.antibiotic_id})
+  MERGE (lr)-[:AGAINST]->(ab)
+} IN TRANSACTIONS OF 500 ROWS;",17,2,false
+10 CBC (haematology),Complete blood count as :LabResult:CBC; Admission-[:HAS_CBC]->CBC. All analyte columns become node properties.,":auto LOAD CSV WITH HEADERS FROM 'file:///clinical/CBC.csv' AS rec
+CALL { WITH rec
+  MERGE (c:LabResult:CBC {cbc_id: rec.cbc_id})
+  SET c.result_type = 'CBC', c += apoc.map.clean(rec, ['cbc_id','admission_id','patient_id'], ['',null])
+  WITH c, rec
+  MATCH (a:Admission {admission_id: rec.admission_id})
+  MERGE (a)-[:HAS_CBC]->(c)
+} IN TRANSACTIONS OF 500 ROWS;",18,2,false
+11 Terminology concepts (SNOMED CT),SNOMED concept nodes. Each gets :SNOMED plus a semantic sub-label (Disorder/Finding/Situation/Device).,":auto LOAD CSV WITH HEADERS FROM 'file:///clinical/Terminology.csv' AS rec
+CALL { WITH rec
+  MERGE (c:SNOMED {sctid: rec.sctid})
+  SET c.preferred_term = rec.preferred_term,
+      c.fully_specified_name = rec.fully_specified_name,
+      c.semantic_tag = rec.semantic_tag
+  FOREACH (_ IN CASE WHEN rec.concept_label = 'Disorder'  THEN [1] ELSE [] END | SET c:Disorder)
+  FOREACH (_ IN CASE WHEN rec.concept_label = 'Finding'   THEN [1] ELSE [] END | SET c:Finding)
+  FOREACH (_ IN CASE WHEN rec.concept_label = 'Situation' THEN [1] ELSE [] END | SET c:Situation)
+  FOREACH (_ IN CASE WHEN rec.concept_label = 'Device'    THEN [1] ELSE [] END | SET c:Device)
+  FOREACH (_ IN CASE WHEN rec.concept_label = 'Morphology' THEN [1] ELSE [] END | SET c:Morphology)
+} IN TRANSACTIONS OF 500 ROWS;",19,3,false
+12 Patient conditions,"Patient-level SNOMED links: comorbid disorders (HAS_DISORDER), clinical findings incl. outcome (HAS_CLINICAL_FINDING), and clinical history (HAS_CLINICAL_HISTORY).",":auto LOAD CSV WITH HEADERS FROM 'file:///clinical/PatientConditions.csv' AS rec
+CALL { WITH rec
+  MATCH (p:Patient {patient_id: rec.patient_id})
+  MATCH (c:SNOMED {sctid: rec.sctid})
+  FOREACH (_ IN CASE WHEN rec.relationship = 'HAS_DISORDER'         THEN [1] ELSE [] END | MERGE (p)-[:HAS_DISORDER]->(c))
+  FOREACH (_ IN CASE WHEN rec.relationship = 'HAS_CLINICAL_FINDING' THEN [1] ELSE [] END | MERGE (p)-[:HAS_CLINICAL_FINDING]->(c))
+  FOREACH (_ IN CASE WHEN rec.relationship = 'HAS_CLINICAL_HISTORY' THEN [1] ELSE [] END | MERGE (p)-[:HAS_CLINICAL_HISTORY]->(c))
+} IN TRANSACTIONS OF 500 ROWS;",20,3,false
+13 Admission conditions,Admission-level SNOMED links: principal diagnosis (HAS_PRINCIPAL_DIAGNOSIS) and medical devices used (USE_DEVICE).,":auto LOAD CSV WITH HEADERS FROM 'file:///clinical/AdmissionConditions.csv' AS rec
+CALL { WITH rec
+  MATCH (a:Admission {admission_id: rec.admission_id})
+  MATCH (c:SNOMED {sctid: rec.sctid})
+  FOREACH (_ IN CASE WHEN rec.relationship = 'HAS_PRINCIPAL_DIAGNOSIS' THEN [1] ELSE [] END | MERGE (a)-[:HAS_PRINCIPAL_DIAGNOSIS]->(c))
+  FOREACH (_ IN CASE WHEN rec.relationship = 'USE_DEVICE'              THEN [1] ELSE [] END | MERGE (a)-[:USE_DEVICE]->(c))
+} IN TRANSACTIONS OF 500 ROWS;",21,3,false
+14 Assembly,Genome assembly nodes; Sample-[:HAS_ASSEMBLY]->Assembly.,":auto LOAD CSV WITH HEADERS FROM 'file:///genomics/Assembly.csv' AS rec
+CALL { WITH rec
+  MERGE (a:Assembly {assembly_id: rec.assembly_id})
+  SET a.date = CASE WHEN rec.date <> '' THEN date(rec.date) ELSE NULL END,
+      a.assembler = rec.assembler,
+      a.sequencing_technology = rec.sequencing_technology,
+      a.annotation_source = rec.annotation_source
+  WITH a, rec
+  MATCH (s:Sample {sample_id: rec.sample_id})
+  MERGE (s)-[:HAS_ASSEMBLY]->(a)
+} IN TRANSACTIONS OF 500 ROWS;",22,4,false
+14b Sequencing reads (BioDataFile),Raw read files referenced by placeholder URI (the reads themselves are not shipped); Assembly-[:ASSEMBLED_FROM]->BioDataFile.,":auto LOAD CSV WITH HEADERS FROM 'file:///genomics/BioDataFiles.csv' AS rec
+CALL { WITH rec
+  MERGE (f:BioDataFile {uri: rec.uri})
+  SET f.file_type = rec.file_type, f.read_type = rec.read_type, f.compressed = rec.compressed
+  WITH f, rec
+  MATCH (a:Assembly {assembly_id: rec.assembly_id})
+  MERGE (a)-[:ASSEMBLED_FROM]->(f)
+} IN TRANSACTIONS OF 500 ROWS;",23,4,false
+15 Resistance genes,AMR genes detected in each assembly; Assembly-[:FOUND]->Gene. (AMR is a public NosoGraph extension.),":auto LOAD CSV WITH HEADERS FROM 'file:///genomics/ResistanceGenes.csv' AS rec
+CALL { WITH rec
+  MERGE (g:Gene {name: rec.gene})
+  WITH g, rec
+  MATCH (a:Assembly {assembly_id: rec.assembly_id})
+  MERGE (a)-[f:FOUND]->(g)
+  SET f.annotation_source = rec.annotation_source, f.annotation_method = rec.annotation_method
+} IN TRANSACTIONS OF 500 ROWS;",24,4,false
+16 Features (annotated genes),"Genome features/genes keyed by locus_tag (curated to resistance-relevant loci, incl. penA).",":auto LOAD CSV WITH HEADERS FROM 'file:///genomics/Features.csv' AS rec
+CALL { WITH rec
+  MERGE (f:Feature {locus_tag: rec.locus_tag})
+  SET f.name = rec.name, f.product = rec.product,
+      f.reference_accession = rec.reference_accession,
+      f.start = CASE WHEN rec.start <> '' THEN toInteger(rec.start) ELSE NULL END,
+      f.end   = CASE WHEN rec.end   <> '' THEN toInteger(rec.end)   ELSE NULL END,
+      f.strand = rec.strand
+} IN TRANSACTIONS OF 500 ROWS;",25,4,false
+17 Variant-calling runs,Snippy variant-calling runs; Sample-[:HAS]->VariantCallingRun.,":auto LOAD CSV WITH HEADERS FROM 'file:///genomics/VariantCallingRuns.csv' AS rec
+CALL { WITH rec
+  MERGE (vcr:ProcessRun:VariantCallingRun {process_run_id: rec.run_id})
+  SET vcr.process = 'variant_calling', vcr.tool = rec.software, vcr.run_id = rec.run_id,
+      vcr.date = CASE WHEN rec.run_date <> '' THEN date(rec.run_date) ELSE NULL END
+  WITH vcr, rec
+  MATCH (s:Sample {sample_id: rec.sample_id})
+  MERGE (s)-[:HAS]->(vcr)
+} IN TRANSACTIONS OF 500 ROWS;",26,4,false
+18 Variants,Called variants; VariantCallingRun-[:CALLED]->Variant-[:AFFECTS]->Feature.,":auto LOAD CSV WITH HEADERS FROM 'file:///genomics/Variants.csv' AS rec
+CALL { WITH rec
+  MERGE (v:Variant {variant_id: rec.variant_id})
+  SET v.reference_accession = rec.reference_accession,
+      v.pos = CASE WHEN rec.pos <> '' THEN toInteger(rec.pos) ELSE NULL END,
+      v.ref = rec.ref, v.alt = rec.alt, v.variant_type = rec.variant_type,
+      v.effect = rec.effect, v.impact = rec.impact,
+      v.hgvs_c = rec.hgvs_c, v.hgvs_p = rec.hgvs_p
+  WITH v, rec
+  MATCH (vcr:VariantCallingRun {process_run_id: rec.run_id})
+  MERGE (vcr)-[:CALLED]->(v)
+  WITH v, rec WHERE rec.feature_locus_tag IS NOT NULL AND rec.feature_locus_tag <> ''
+  MATCH (f:Feature {locus_tag: rec.feature_locus_tag})
+  MERGE (v)-[:AFFECTS]->(f)
+} IN TRANSACTIONS OF 500 ROWS;",27,4,false
+Clinical–genomic spine,"Patient -> Specimen -> Sample -> Assembly, with organism and ward.","MATCH (p:Patient)<-[:COLLECTED_FROM]-(sp:Specimen)<-[:DERIVED_FROM]-(s:Sample)-[:HAS_ASSEMBLY]->(a:Assembly)
+OPTIONAL MATCH (s)-[:IDENTIFIED_AS]->(o:Organism)
+OPTIONAL MATCH (p)-[:HAS_ADMISSION]->(:Admission)-[:ADMITTED_TO]->(w:Ward)
+RETURN p.patient_id AS patient, p.sex AS sex, p.age_years AS age, w.name AS ward,
+       sp.specimen_type AS specimen, s.sample_id AS sample, o.sciname AS organism,
+       a.assembly_id AS assembly
+ORDER BY patient;",28,5,false
+AMR phenotype vs. genotype,MIC interpretation per antibiotic alongside the resistance genes carried by the same isolate.,"MATCH (s:Sample)-[:DERIVED_FROM]->(sp:Specimen)-[:TESTED_FOR]->(lr:LabResult:BacterialCulture)-[:AGAINST]->(ab:Antibiotic)
+OPTIONAL MATCH (s)-[:HAS_ASSEMBLY]->(:Assembly)-[:FOUND]->(g:Gene)
+RETURN s.sample_id AS sample, ab.class AS drug_class, ab.name AS antibiotic,
+       lr.value AS mic, lr.interpretation AS sir, collect(DISTINCT g.name) AS resistance_genes
+ORDER BY sample, drug_class;",29,5,false
+Patient comorbidity & outcome profile,"SNOMED disorders, principal diagnosis, devices, and outcome per patient.","MATCH (p:Patient)
+OPTIONAL MATCH (p)-[:HAS_DISORDER]->(d:SNOMED:Disorder)
+OPTIONAL MATCH (p)-[:HAS_ADMISSION]->(a:Admission)-[:HAS_PRINCIPAL_DIAGNOSIS]->(pd:SNOMED)
+OPTIONAL MATCH (a)-[:USE_DEVICE]->(dev:SNOMED:Device)
+RETURN p.patient_id AS patient, p.deceased AS died, a.length_of_stay AS los_days,
+       pd.preferred_term AS principal_diagnosis,
+       collect(DISTINCT d.preferred_term) AS comorbidities,
+       collect(DISTINCT dev.preferred_term) AS devices
+ORDER BY patient;",30,5,false
+Beta-lactam resistance: MIC phenotype + penA genotype,"Equivalent of the gold NosoWatch penA query in the public schema: link the penicillin β-lactam antibiotic class, through MIC susceptibility, to an isolate carrying a penA variant.","MATCH graph =
+  (:AntibioticClass {name: 'penicillin beta-lactam'})<-[:BELONGS_TO]-(:Antibiotic)
+  <-[:AGAINST]-(:LabResult:MIC)<-[:TESTED_FOR]-(:Specimen)
+  <-[:DERIVED_FROM]-(:Sample)-[:HAS]->(:VariantCallingRun)
+  -[:CALLED]->(:Variant)-[:AFFECTS]->(:Feature {name: 'penA'})
+RETURN graph;",31,5,false
+Pan-drug-resistant isolates,Isolates resistant (R) to every antibiotic tested — the surveillance red flag.,"MATCH (s:Sample)-[:DERIVED_FROM]->(:Specimen)-[:TESTED_FOR]->(lr:LabResult:BacterialCulture)
+WITH s, count(lr) AS tested, sum(CASE WHEN lr.interpretation = 'R' THEN 1 ELSE 0 END) AS resistant
+WHERE tested = resistant AND tested > 0
+MATCH (s)-[:IDENTIFIED_AS]->(o:Organism)
+RETURN s.sample_id AS sample, o.sciname AS organism, tested AS antibiotics_tested
+ORDER BY sample;",32,5,false
+① Clinical backbone,"Patient → Admission → Ward → Department, plus the specimen collected from each patient.","MATCH path = (:Department)<-[:BELONGS_TO]-(:Ward)<-[:ADMITTED_TO]-(:Admission)<-[:HAS_ADMISSION]-(p:Patient)
+OPTIONAL MATCH collected = (p)<-[:COLLECTED_FROM]-(:Specimen)
+RETURN path, collected;",33,6,false
+② Specimen → susceptibility,How a specimen links to its isolate and to the antibiotics it was tested against (with drug class).,"MATCH path = (ac:AntibioticClass)<-[:BELONGS_TO]-(:Antibiotic)<-[:AGAINST]-(:LabResult:MIC)<-[:TESTED_FOR]-(sp:Specimen)
+MATCH isolate = (sp)<-[:DERIVED_FROM]-(:Sample)-[:IDENTIFIED_AS]->(:Organism)
+RETURN path, isolate;",34,6,false
+③ Patient conditions (SNOMED),"A patient's comorbidities, clinical history and outcome, plus the admission's principal diagnosis and devices.","MATCH pc = (p:Patient)-[:HAS_DISORDER|HAS_CLINICAL_FINDING|HAS_CLINICAL_HISTORY]->(:SNOMED)
+OPTIONAL MATCH ac = (p)-[:HAS_ADMISSION]->(:Admission)-[:HAS_PRINCIPAL_DIAGNOSIS|USE_DEVICE]->(:SNOMED)
+RETURN pc, ac;",35,6,false
+④ Clinical–genomic spine,The join that makes NosoGraph useful: patient context all the way to the sequenced genome.,"MATCH spine = (:Patient)<-[:COLLECTED_FROM]-(:Specimen)<-[:DERIVED_FROM]-(s:Sample)-[:HAS_ASSEMBLY]->(:Assembly)
+OPTIONAL MATCH org = (s)-[:IDENTIFIED_AS]->(:Organism)
+RETURN spine, org;",36,6,false
+⑤ Resistance genotype,Acquired AMR genes on the assembly and chromosomal variants in resistance-relevant features.,"MATCH genes = (s:Sample)-[:HAS_ASSEMBLY]->(:Assembly)-[:FOUND]->(:Gene)
+OPTIONAL MATCH variants = (s)-[:HAS]->(:VariantCallingRun)-[:CALLED]->(:Variant)-[:AFFECTS]->(:Feature)
+RETURN genes, variants;",37,6,false
+"⑥ One isolate, everything",The full ego-network around a single isolate — clinical context + genotype in one picture. Change the sample_id.,"MATCH graph = (s:Sample {sample_id: 'sample_01'})-[*1..4]-(neighbour)
+RETURN graph;",38,6,false
