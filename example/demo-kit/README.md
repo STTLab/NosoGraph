@@ -63,7 +63,7 @@ Patient -->|USE_DEVICE| SNOMED
 Admission -->|HAS_CBC| CBC
 
 %% Specimen & microbiology
-Patient -->|COLLECTED_FROM| Specimen
+Specimen -->|COLLECTED_FROM| Patient
 Sample -->|DERIVED_FROM| Specimen
 Specimen -->|TESTED_FOR| Culture
 
