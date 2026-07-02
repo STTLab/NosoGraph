@@ -1,0 +1,9 @@
+sctid,preferred_term,fully_specified_name,concept_label,semantic_tag
+53084003,Bacterial pneumonia,Bacterial pneumonia (disorder),Disorder,Disorder
+59621000,Essential hypertension,Essential hypertension (disorder),Disorder,Disorder
+44054006,Type 2 diabetes mellitus,Type 2 diabetes mellitus (disorder),Disorder,Disorder
+14669001,Acute kidney injury,Acute kidney injury (disorder),Disorder,Disorder
+419099009,Dead,Dead (finding),Finding,Finding
+161615003,History of surgery,History of surgery (situation),Situation,Situation
+82449006,"Peripheral intravenous catheter, device","Peripheral intravenous catheter, device (physical object)",Device,Physical object
+20568009,"Urinary catheter, device","Urinary catheter, device (physical object)",Device,Physical object

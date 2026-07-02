@@ -1,3 +1,0 @@
-ward_id,name,department_id,ward_type,description
-W01,Medical Ward 1,D01,General,General medical inpatient ward
-W02,Medical ICU,D02,ICU,Intensive care for critically ill medical patients

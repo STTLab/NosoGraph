@@ -1,2 +1,0 @@
-uri,file_type,compressed,sha256,sample_id,process_run_id
-data/CI19.long.fq.gz,FASTQ,true,,CI19,CI19_taxclass

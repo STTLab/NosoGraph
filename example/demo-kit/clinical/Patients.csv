@@ -1,0 +1,3 @@
+patient_id,sex,age_years,deceased
+P-sample_01,Male,63,true
+P-sample_02,Male,44,true

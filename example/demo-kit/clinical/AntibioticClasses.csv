@@ -1,0 +1,10 @@
+antibiotic_id,class_name
+AN,Aminoglycoside
+CI,Fluoroquinolone
+CZ,Cephalosporin
+FEP,Cephalosporin
+IP,Carbapenem
+LX,Fluoroquinolone
+ME,Carbapenem
+TX,penicillin beta-lactam
+TZ,penicillin beta-lactam

@@ -1,0 +1,38 @@
+locus_tag,name,product,reference_accession,start,end,strand
+FPKKOBOA_00758,acr3_1,Arsenical-resistance protein Acr3,assembly_dbdebdd5dd27427c_1,822588,823619,-
+FPKKOBOA_03058,acrA_2,Multidrug efflux pump subunit AcrA,assembly_dbdebdd5dd27427c_1,3312270,3313388,+
+FPKKOBOA_00578,bepE_1,Efflux pump membrane transporter BepE,assembly_dbdebdd5dd27427c_1,631750,634896,+
+FPKKOBOA_02233,bepE_2,Efflux pump membrane transporter BepE,assembly_dbdebdd5dd27427c_1,2409461,2412643,+
+FPKKOBOA_03059,bepE_3,Efflux pump membrane transporter BepE,assembly_dbdebdd5dd27427c_1,3313419,3316577,+
+FPKKOBOA_02038,ccrA,Metallo-beta-lactamase type 2,assembly_dbdebdd5dd27427c_1,2199863,2200618,-
+FPKKOBOA_03360,cnrB,Nickel and cobalt resistance protein CnrB,assembly_dbdebdd5dd27427c_1,3668652,3669890,+
+FPKKOBOA_02185,czcA_1,Cobalt-zinc-cadmium resistance protein CzcA,assembly_dbdebdd5dd27427c_1,2353610,2356720,+
+FPKKOBOA_02434,czcA_2,Cobalt-zinc-cadmium resistance protein CzcA,assembly_dbdebdd5dd27427c_1,2642848,2645946,-
+FPKKOBOA_03414,czcA_3,Cobalt-zinc-cadmium resistance protein CzcA,assembly_dbdebdd5dd27427c_1,3721265,3724363,+
+FPKKOBOA_03413,czcB_3,Cobalt-zinc-cadmium resistance protein CzcB,assembly_dbdebdd5dd27427c_1,3720150,3721265,+
+FPKKOBOA_02186,czcC_1,Cobalt-zinc-cadmium resistance protein CzcC,assembly_dbdebdd5dd27427c_1,2356695,2357978,+
+FPKKOBOA_02436,czcC_2,Cobalt-zinc-cadmium resistance protein CzcC,assembly_dbdebdd5dd27427c_1,2647092,2648339,-
+FPKKOBOA_03412,czcC_3,Cobalt-zinc-cadmium resistance protein CzcC,assembly_dbdebdd5dd27427c_1,3718789,3720063,+
+FPKKOBOA_03362,czcD,Metal cation efflux system protein CzcD,assembly_dbdebdd5dd27427c_1,3670935,3671837,+
+FPKKOBOA_00980,emrK_2,putative multidrug resistance protein EmrK,assembly_dbdebdd5dd27427c_1,1053028,1054074,+
+FPKKOBOA_01327,fieF_1,Ferrous-iron efflux pump FieF,assembly_dbdebdd5dd27427c_1,1421133,1422026,+
+FPKKOBOA_03264,fieF_2,Ferrous-iron efflux pump FieF,assembly_dbdebdd5dd27427c_1,3544824,3545825,-
+FPKKOBOA_03710,kefC,Glutathione-regulated potassium-efflux system protein KefC,assembly_dbdebdd5dd27427c_1,4033663,4035549,-
+FPKKOBOA_01035,mdtA_1,Multidrug resistance protein MdtA,assembly_dbdebdd5dd27427c_1,1115127,1116188,-
+FPKKOBOA_00747,mdtC_1,Multidrug resistance protein MdtC,assembly_dbdebdd5dd27427c_1,810040,814377,+
+FPKKOBOA_01034,mdtC_2,Multidrug resistance protein MdtC,assembly_dbdebdd5dd27427c_1,1111934,1115119,-
+FPKKOBOA_03359,mdtC_4,Multidrug resistance protein MdtC,assembly_dbdebdd5dd27427c_1,3664205,3668566,+
+FPKKOBOA_01118,mdtL,Multidrug resistance protein MdtL,assembly_dbdebdd5dd27427c_1,1196943,1198148,+
+FPKKOBOA_03139,mrcA,Penicillin-binding protein 1A,assembly_dbdebdd5dd27427c_1,3403773,3406151,-
+FPKKOBOA_00494,ohrB_1,Organic hydroperoxide resistance protein OhrB,assembly_dbdebdd5dd27427c_1,537086,537544,-
+FPKKOBOA_02318,pbpE_1,Penicillin-binding protein 4*,assembly_dbdebdd5dd27427c_1,2512419,2513729,+
+FPKKOBOA_02567,pbpE_2,Penicillin-binding protein 4*,assembly_dbdebdd5dd27427c_1,2789067,2790173,+
+FPKKOBOA_03649,pbpE_3,Penicillin-binding protein 4*,assembly_dbdebdd5dd27427c_1,3957684,3958817,-
+FPKKOBOA_02856,penA,"putative peptidoglycan D,D-transpeptidase PenA",assembly_dbdebdd5dd27427c_1,3118077,3120068,+
+FPKKOBOA_01261,per1,Extended-spectrum beta-lactamase PER-1,assembly_dbdebdd5dd27427c_1,1346018,1346896,+
+FPKKOBOA_01679,rhtB,Homoserine/homoserine lactone efflux protein,assembly_dbdebdd5dd27427c_1,1815670,1816305,+
+FPKKOBOA_00488,stp_1,Multidrug resistance protein Stp,assembly_dbdebdd5dd27427c_1,531725,533119,-
+FPKKOBOA_01549,stp_2,Multidrug resistance protein Stp,assembly_dbdebdd5dd27427c_1,1674172,1675563,-
+FPKKOBOA_02080,stp_3,Multidrug resistance protein Stp,assembly_dbdebdd5dd27427c_1,2243699,2245045,-
+FPKKOBOA_00321,tetA_2,"Tetracycline resistance protein, class C",assembly_dbdebdd5dd27427c_1,349467,350684,-
+FPKKOBOA_02498,yheI,putative multidrug resistance ABC transporter ATP-binding/permease protein YheI,assembly_dbdebdd5dd27427c_1,2713505,2715166,+

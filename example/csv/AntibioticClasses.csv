@@ -1,0 +1,13 @@
+antibiotic_id,class_name
+A001,penicillin beta-lactam
+A002,Cephalosporin
+A003,Cephalosporin
+A004,Cephalosporin
+A005,Carbapenem
+A006,Carbapenem
+A007,Aminoglycoside
+A008,Fluoroquinolone
+A009,Fluoroquinolone
+A010,Cephalosporin
+A011,Aminoglycoside
+A012,Sulfonamide/Trimethoprim

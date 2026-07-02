@@ -1,0 +1,3 @@
+ward_id,name,department_id,ward_type,description
+PRI-TAWAN-06,Tawan 6 Private ward,D-MED,Private,Private inpatient care
+SURG-M-02,Surgery Male Ward 2,D-SURG,General,Male surgery

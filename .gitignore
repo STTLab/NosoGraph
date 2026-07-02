@@ -222,3 +222,9 @@ __marimo__/
 # nextflow
 .nextflow*
 work/
+
+# raw sequencing reads — never commit; deposit in SRA/ENA and reference by URI
+*.fq.gz
+*.fastq.gz
+*.fq
+*.fastq

@@ -1,5 +1,0 @@
-contig_id,assembly_id,name,accession,length,coverage,is_circular,is_repeated_region,multiplicity,alt_group,graph_path,sequence_hash,hash_algorithm
-CI16:contig_1,CI16_assembly,contig_1,,73639,42.0,false,false,1,,"4,1,4",476ce0315d5b6a63b9c30b5d1e91a878,md5
-CI16:contig_2,CI16_assembly,contig_2,CP009928.2837586.2839108,5160991,53.0,false,false,1,,"4,2,4",f9c2389d09c4c6313abe0f39212fa1a4,md5
-CI16:contig_3,CI16_assembly,contig_3,CP023968.3668607.3670127,6126,72.0,true,true,1,,3,209204daf3315a6e503d5d472bf029ba,md5
-CI16:contig_4,CI16_assembly,contig_4,,41301,64.0,false,true,1,,4,723721d63543b6b88e674be81f949115,md5

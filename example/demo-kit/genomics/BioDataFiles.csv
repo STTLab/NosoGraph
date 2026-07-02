@@ -1,0 +1,5 @@
+sample_id,assembly_id,uri,file_type,read_type,compressed
+sample_01,ASM5082198v1,data/sample_01.long.fq.gz,FASTQ,long,true
+sample_01,ASM5082198v1,data/sample_01.short_1.fq.gz,FASTQ,short,true
+sample_01,ASM5082198v1,data/sample_01.short_2.fq.gz,FASTQ,short,true
+sample_02,ASM5070351v1,data/sample_02.long.fq.gz,FASTQ,long,true

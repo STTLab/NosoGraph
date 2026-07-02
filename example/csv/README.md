@@ -242,6 +242,75 @@ Antibiotic susceptibility results, modelled as `:LabResult:BacterialCulture` and
 | antibiotic_id  | String | ☐        | Antibiotic tested (links to Antibiotic.csv)     | A006       |
 | interpretation | String | ☐        | Clinical interpretation (`S` / `I` / `R`)       | S          |
 
+### AntibioticClasses.csv
+
+Optional link table that promotes an antibiotic's drug class to an `:AntibioticClass` node, wired
+`Antibiotic -[:BELONGS_TO]-> AntibioticClass`. Use it when you want to query or visualise by drug
+class (e.g. "all β-lactam results"). The `class` column on `Antibiotic.csv` remains as a plain
+property; this file is additive.
+
+| Property      | Type   | Required | Description                                | Example                |
+| ------------- | ------ | -------- | ------------------------------------------ | ---------------------- |
+| antibiotic_id | String | ☑        | Reference to `Antibiotic.csv`              | A001                   |
+| class_name    | String | ☑        | Drug-class name (becomes the node identity)| penicillin beta-lactam |
+
+## Clinical terminology (SNOMED CT)
+
+Standardised clinical concepts and their links to patients/admissions. Concepts are shared nodes
+(deduplicated by `sctid`), so many patients can point at the same disorder.
+
+### Terminology.csv
+
+The concept dictionary. Each row is one SNOMED concept; it becomes a `:SNOMED` node with an extra
+semantic sub-label taken from `concept_label`.
+
+| Property             | Type   | Required | Description                                                   | Example                        |
+| -------------------- | ------ | -------- | ------------------------------------------------------------- | ------------------------------ |
+| sctid                | String | ☑        | SNOMED CT concept id (node identity)                          | 53084003                       |
+| preferred_term       | String | ☑        | Human-readable preferred term                                 | Bacterial pneumonia            |
+| fully_specified_name | String | ☐        | SNOMED fully specified name                                   | Bacterial pneumonia (disorder) |
+| concept_label        | String | ☑        | Sub-label to add: `Disorder`/`Finding`/`Situation`/`Device`/`Morphology` | Disorder            |
+| semantic_tag         | String | ☐        | SNOMED semantic tag                                           | Disorder                       |
+
+### PatientConditions.csv
+
+Links a patient to a SNOMED concept. The `relationship` column names the edge, so one file covers
+comorbidities, findings (incl. outcome) and clinical history.
+
+| Property     | Type   | Required | Description                                                                 | Example       |
+| ------------ | ------ | -------- | --------------------------------------------------------------------------- | ------------- |
+| patient_id   | String | ☑        | Reference to `Patients.csv`                                                 | P001          |
+| sctid        | String | ☑        | Reference to `Terminology.csv`                                              | 53084003      |
+| relationship | String | ☑        | One of `HAS_DISORDER`, `HAS_CLINICAL_FINDING`, `HAS_CLINICAL_HISTORY`       | HAS_DISORDER  |
+
+### AdmissionConditions.csv
+
+Links an admission to a SNOMED concept — the principal diagnosis for that admission and any medical
+devices used.
+
+| Property     | Type   | Required | Description                                              | Example                 |
+| ------------ | ------ | -------- | -------------------------------------------------------- | ----------------------- |
+| admission_id | String | ☑        | Reference to `Admissions.csv`                            | A1001                   |
+| sctid        | String | ☑        | Reference to `Terminology.csv`                           | 53084003                |
+| relationship | String | ☑        | One of `HAS_PRINCIPAL_DIAGNOSIS`, `USE_DEVICE`           | HAS_PRINCIPAL_DIAGNOSIS |
+
+## Haematology
+
+### CBC.csv
+
+A complete blood count, modelled as one `:LabResult:CBC` node per row (keyed by `cbc_id`) and wired
+`Admission -[:HAS_CBC]-> LabResult:CBC`. Every analyte/unit column is stored as a node property, so
+you can add or drop analytes freely — the loader copies whatever columns are present (other than the
+three id columns). Leave a cell blank if an analyte was not measured.
+
+| Property                   | Type   | Required | Description                                  | Example                  |
+| -------------------------- | ------ | -------- | -------------------------------------------- | ------------------------ |
+| cbc_id                     | String | ☑        | Unique id for the CBC result (node identity) | CBC-A1001-01             |
+| admission_id               | String | ☑        | Reference to `Admissions.csv`                | A1001                    |
+| patient_id                 | String | ☐        | Reference to `Patients.csv`                  | P001                     |
+| hemoglobin … nrbc          | Float  | ☐        | Analyte values (`wbc`, `platelet`, `mcv`, …) | 12.4                     |
+| *_unit                     | String | ☐        | Unit for the matching analyte                | g/dL                     |
+
 ## Pipeline-produced genomic CSVs (`<sample_id>/kg/`)
 
 The remaining nodes (Sample assembly/contig provenance) are **not** hand-authored — the assembly
