@@ -23,19 +23,65 @@ The kit exercises all three NosoGraph layers end to end:
 
 ## How the layers connect
 
-```
-        SNOMED (Disorder / Finding / Situation / Device)      (clinical/Terminology.csv)
-          ▲  HAS_DISORDER / HAS_CLINICAL_FINDING / HAS_CLINICAL_HISTORY
-Patient ──┼─ HAS_ADMISSION ─▶ Admission ─ ADMITTED_TO ─▶ Ward ─ BELONGS_TO ─▶ Department
-   ▲      └─ HAS_PRINCIPAL_DIAGNOSIS / USE_DEVICE ─▶ SNOMED          │ HAS_CBC ▼
-   │ COLLECTED_FROM                                           LabResult:CBC  (clinical/CBC.csv)
-Specimen ─ TESTED_FOR ─▶ LabResult:BacterialCulture ─ AGAINST ─▶ Antibiotic   (MIC / AST)
-   ▲ DERIVED_FROM                          Antibiotic ─ BELONGS_TO ─▶ AntibioticClass
-Sample ─ IDENTIFIED_AS ─▶ Organism{taxid}                    ← clinical↔genomic join
-   ├ HAS_ASSEMBLY ─▶ Assembly ─ FOUND ─▶ Gene               (genomics/, acquired AMR genes)
-   │                    └ ASSEMBLED_FROM ─▶ BioDataFile{uri} (genomics/, raw-read provenance)
-   └ HAS ─▶ VariantCallingRun ─ CALLED ─▶ Variant ─ AFFECTS ─▶ Feature{name}
-                                                             (genomics/, chromosomal variants incl. penA)
+```mermaid
+flowchart LR
+
+%% Clinical
+Patient((Patient))
+Admission((Admission))
+Ward((Ward))
+Department((Department))
+SNOMED(("SNOMED<br/>Disorder / Finding / Situation / Device<br/>clinical/Terminology.csv"))
+CBC(("LabResult:CBC<br/>clinical/CBC.csv"))
+
+Specimen((Specimen))
+Sample((Sample))
+Culture(("LabResult:BacterialCulture"))
+Antibiotic((Antibiotic))
+AntibioticClass((AntibioticClass))
+
+%% Genomics
+Organism(("Organism<br/>{taxid}"))
+Assembly((Assembly))
+Gene((Gene))
+BioDataFile(("BioDataFile<br/>{uri}"))
+VariantCallingRun((VariantCallingRun))
+Variant((Variant))
+Feature(("Feature<br/>{name}"))
+
+%% Patient
+Patient -->|HAS_ADMISSION| Admission
+Admission -->|ADMITTED_TO| Ward
+Ward -->|BELONGS_TO| Department
+
+Patient -->|HAS_DISORDER| SNOMED
+Patient -->|HAS_CLINICAL_FINDING| SNOMED
+Patient -->|HAS_CLINICAL_HISTORY| SNOMED
+Patient -->|HAS_PRINCIPAL_DIAGNOSIS| SNOMED
+Patient -->|USE_DEVICE| SNOMED
+
+Admission -->|HAS_CBC| CBC
+
+%% Specimen & microbiology
+Patient -->|COLLECTED_FROM| Specimen
+Sample -->|DERIVED_FROM| Specimen
+Specimen -->|TESTED_FOR| Culture
+
+Culture -->|AGAINST| Antibiotic
+Antibiotic -->|BELONGS_TO| AntibioticClass
+
+%% Clinical ↔ Genomics
+Sample -->|IDENTIFIED_AS| Organism
+
+Sample -->|HAS_ASSEMBLY| Assembly
+Assembly -->|FOUND| Gene
+Assembly -->|ASSEMBLED_FROM| BioDataFile
+
+Sample -->|HAS| VariantCallingRun
+VariantCallingRun -->|CALLED| Variant
+Variant -->|AFFECTS| Feature
+
+Organism -. "clinical ↔ genomic join" .- Assembly
 ```
 
 `Samples.csv` (`sample_id ↔ specimen_id`) is the bridge that stitches the clinical context onto
@@ -76,7 +122,7 @@ identical chromosomal `penA` (PBP2) missense variant — `p.Gly345Asp` — so th
 resistance** query). The variant layer is curated to resistance-relevant loci rather than the full
 ~5,000-variant Snippy call set.
 
-## ⚠️ Notes
+## Notes
 
 - **This is real, de-identified clinical data**, not synthetic. Patients carry no names or dates
   of birth — only a study code (`P-sample_01`), sex, and age; hospital numbers, admission dates and CBC
