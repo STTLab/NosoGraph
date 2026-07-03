@@ -21,7 +21,7 @@ process PILON_POLISH {
     path "pilon_final.fasta"
 
     script:
-    def half_threads = Math.max(1, (params.threads as int) * 0.5 as int)
+    def half_threads = Math.max(1, ((params.threads as int) * 0.5) as int)
     def sort_threads = Math.max(0, half_threads - 1)
     """
     CONTIGS=${contigs}
