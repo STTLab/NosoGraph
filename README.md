@@ -84,3 +84,23 @@ nextflow run ./autocycler -profile micromamba \
 
 Expected: `results/01_assembly/consensus_assembly.fasta` — a ~242 kb assembly you can compare
 against `truth.fasta`.
+
+## Software dependencies
+
+This pipeline uses external software managed via Conda environment files located in `conda/*.yaml`.
+
+A non-exhaustive list of tools includes Nextflow (Apache 2.0) and other bioinformatics tools defined in the Conda environment specifications.
+
+All tools are distributed under their respective licenses. Please consult each tool’s documentation for license information.
+
+---
+
+## License
+
+SPDX-License-Identifier: MPL-2.0
+
+Copyright © 2026 Sara Wattanasombat
+
+This project is licensed under the Mozilla Public License 2.0 (MPL-2.0).
+A copy of the license is included in the LICENSE file, or available at https://mozilla.org/MPL/2.0/.
+
