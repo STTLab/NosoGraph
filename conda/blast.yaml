@@ -1,14 +1,70 @@
 # SPDX-License-Identifier: MPL-2.0
+#
+# LOCKED ENV — fully pinned (name=version=build) for daily reproducibility.
+# Generated 2026-07-03 from a fresh verified resolve: BLAST+ 2.16.0.
+# Smoke-tested (blastn -version -> 2.16.0+, runs AVX2-free via runtime dispatch).
+#
+# Channels are conda-forge + bioconda only (NO defaults). With defaults in the
+# list the solver picked defaults' _openmp_mutex but conda-forge's libgcc-ng,
+# and pulled NO libgomp package -> blastn failed with
+# "libgomp.so.1: cannot open shared object file". Dropping defaults pulls
+# conda-forge libgomp and fixes it — same policy as conda/blast.yaml.
 name: assembly-qc-iden-blast
 channels:
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
-  # BLAST+ pinned per the SOW (§6). BLAST+ uses runtime CPU-feature dispatch (it probes
-  # for SSE/AVX at startup and falls back), so 2.16.0 runs on the Xeon E5-2670 v0 (no
-  # AVX2) test server without illegal-instruction faults. Pin to an earlier build if a
-  # future release ever SIGILLs there (same policy as the other vendored conda envs).
-  # NOTE: the SOW refers to a pre-existing parent-repo conda/blast.yaml; none existed in
-  # this repo, so this file establishes the BLAST env at the contracted pin.
-  - blast=2.16.0
+  - blast=2.16.0=h66d330f_5
+  - bzip2=1.0.8=hda65f42_9
+  - ca-certificates=2026.6.17=hbd8a1cb_0
+  - c-ares=1.34.6=hb03c661_0
+  - curl=8.21.0=hae6b9f4_2
+  - entrez-direct=22.4=he881be0_0
+  - icu=78.3=h33c6efd_0
+  - keyutils=1.6.3=hb9d3cd8_0
+  - krb5=1.22.2=hbde042b_1
+  - libcurl=8.21.0=hae6b9f4_2
+  - libedit=3.1.20250104=pl5321h7949ede_0
+  - libev=4.33=hd590300_2
+  - libgcc=15.2.0=he0feb66_19
+  - libgcc-ng=15.2.0=h69a702a_19
+  - libgomp=15.2.0=he0feb66_19
+  - libidn2=2.3.8=hfac485b_1
+  - libnghttp2=1.68.1=h877daf1_0
+  - libpsl=0.22.0=hd9031aa_0
+  - libsqlite=3.53.3=h0c1763c_0
+  - libssh2=1.11.1=hcf80075_0
+  - libstdcxx=15.2.0=h934c35e_19
+  - libunistring=0.9.10=h7f98852_0
+  - libxcrypt=4.4.36=hd590300_1
+  - libzlib=1.3.2=h25fd6f3_2
+  - ncbi-vdb=3.4.1=hd63eeec_0
+  - ncurses=6.6=hdb14827_0
+  - _openmp_mutex=4.5=20_gnu
+  - openssl=3.6.3=h35e630c_0
+  - pcre2=10.47=haa7fec5_0
+  - perl=5.32.1=7_hd590300_perl5
+  - perl-archive-tar=3.12=pl5321hdfd78af_0
+  - perl-carp=1.50=pl5321hd8ed1ab_0
+  - perl-common-sense=3.75=pl5321hd8ed1ab_0
+  - perl-compress-raw-bzip2=2.214=pl5321hda65f42_0
+  - perl-compress-raw-zlib=2.214=pl5321h4dac143_0
+  - perl-encode=3.24=pl5321hb03c661_0
+  - perl-exporter=5.74=pl5321hd8ed1ab_0
+  - perl-exporter-tiny=1.002002=pl5321hd8ed1ab_0
+  - perl-extutils-makemaker=7.70=pl5321hd8ed1ab_0
+  - perl-io-compress=2.216=pl5321h503566f_0
+  - perl-io-zlib=1.15=pl5321hdfd78af_1
+  - perl-json=4.11=pl5321hdfd78af_0
+  - perl-json-xs=4.04=pl5321h9948957_0
+  - perl-list-moreutils=0.430=pl5321hdfd78af_0
+  - perl-list-moreutils-xs=0.430=pl5321h7b50bb2_5
+  - perl-parent=0.243=pl5321hd8ed1ab_0
+  - perl-pathtools=3.75=pl5321hb9d3cd8_2
+  - perl-scalar-list-utils=1.70=pl5321hb03c661_0
+  - perl-storable=3.15=pl5321hb9d3cd8_2
+  - perl-types-serialiser=1.01=pl5321hdfd78af_0
+  - rpsbproc=0.5.1=hd6d6fdc_0
+  - wget=1.25.0=h653f8fd_1
+  - zlib=1.3.2=h25fd6f3_2
+  - zstd=1.5.7=hb78ec9c_6
