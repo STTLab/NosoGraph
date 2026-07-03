@@ -7,4 +7,7 @@ dependencies:
   # kraken2 has no AVX2 requirement, so it runs on the older Xeon E5-2670 v0 test
   # server. If a future build ever SIGILLs there, pin to an AVX2-safe build (same
   # policy as the other vendored conda envs).
+  - python=3.12
   - kraken2=2.1.3
+  - libgcc-ng
+  - libgomp
