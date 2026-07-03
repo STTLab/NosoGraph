@@ -1,25 +1,108 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# LOCKED ENV — fully pinned (name=version=build) for daily reproducibility.
+# Generated 2026-07-03 from the verified working env in $NXF_CONDA_CACHEDIR
+# (env-a5982c9b...): flye 2.9.5 / racon 1.4.20 / pilon 1.24 on python 3.9,
+# smoke-tested (flye --version, pilon run exit 0, racon v1.4.20).
+#
+# AVX2 rationale (why these versions): the Intel Xeon E5-2670 v0 test server
+# lacks AVX2; newer bioconda builds emit AVX2 and abort with SIGILL. flye 2.9.5
+# / racon 1.4.20 only ship py3.8/3.9 builds -> python pinned 3.9. CheckM2 (newer
+# python + zlib) stays in its own env (conda/qc.yaml).
+# To move to AVX2-capable hardware / newer stack, regenerate this lock from a
+# fresh resolve of the intended top-level pins, don't hand-edit build strings.
 name: bacterial-assembly
 channels:
   - conda-forge
   - bioconda
   - defaults
 dependencies:
-  # --- AVX2-safe pins --------------------------------------------------------
-  # The Intel Xeon E5-2670 v0 test server lacks AVX2; newer bioconda builds emit
-  # AVX2 and abort with "Illegal instruction" (SIGILL). These are the newest
-  # builds that run without AVX2. flye 2.9.5 / racon 1.4.20 only have py3.8/3.9
-  # builds, which is why python is pinned to 3.9 here (and why CheckM2 — needing
-  # newer python + zlib — lives in its own env, conda/qc.yaml). Relax on
-  # AVX2-capable hardware.
-  - python=3.9
-  - flye=2.9.5
-  - racon=1.4.20
-  # ---------------------------------------------------------------------------
-  # Assembly
-  - canu
-  # Long-read polishing (racon)
-  - minimap2
-  # Short-read polishing (pilon)
-  - bwa-mem2
-  - samtools
-  - pilon
+  - bwa-mem2=2.2.1=hd03093a_5
+  - bzip2=1.0.8=hda65f42_9
+  - ca-certificates=2026.6.17=hbd8a1cb_0
+  - cairo=1.18.4=h44eff21_0
+  - canu=1.4=1
+  - c-ares=1.34.6=hb03c661_0
+  - dbus=1.16.2=h5bd4931_0
+  - expat=2.8.1=hecca717_1
+  - flye=2.9.5=py39hdf45acc_1
+  - fontconfig=2.14.2=h14ed4e7_0
+  - freetype=2.13.3=h4a9f257_0
+  - fribidi=1.0.16=h10f3c28_1
+  - giflib=5.2.2=h5eee18b_0
+  - glib=2.86.3=h617169b_1
+  - glib-tools=2.86.3=h9fad118_1
+  - gnuplot=5.0.3=4
+  - graphite2=1.3.15=h9ba177b_0
+  - harfbuzz=10.2.0=hdfddeaa_1
+  - htslib=1.21=h5efdd21_0
+  - icu=73.2=h59595ed_0
+  - java-jdk=8.0.92=1
+  - jpeg=9f=h5ce9db8_0
+  - k8=0.2.5=hdcf5f25_4
+  - keyutils=1.6.3=hb9d3cd8_0
+  - krb5=1.21.3=h659f571_0
+  - ld_impl_linux-64=2.45.1=bootstrap_ha15bf96_2
+  - lerc=4.1.0=h7354ed3_2
+  - libcurl=8.8.0=hca28451_1
+  - libdeflate=1.22=h5eee18b_0
+  - libedit=3.1.20250104=pl5321h7949ede_0
+  - libev=4.33=hd590300_2
+  - libexpat=2.8.1=hecca717_1
+  - libffi=3.5.2=h3435931_0
+  - libgcc=15.2.0=he0feb66_19
+  - libgcc-ng=15.2.0=h69a702a_19
+  - libgd=2.3.3=h536bbd8_4
+  - libglib=2.86.3=h8b17d9a_0
+  - libgomp=15.2.0=he0feb66_19
+  - libiconv=1.18=h3b78370_2
+  - liblzma=5.8.3=hb03c661_0
+  - liblzma-devel=5.8.3=hb03c661_0
+  - libnghttp2=1.58.0=h47da74e_1
+  - libnsl=2.0.1=hb9d3cd8_1
+  - libpng=1.6.43=h2797004_0
+  - libsqlite=3.46.0=hde9e2c9_0
+  - libssh2=1.11.0=h0841786_0
+  - libstdcxx=15.2.0=h934c35e_19
+  - libstdcxx-ng=15.2.0=hdf11a46_19
+  - libtiff=4.7.1=h029b1ac_0
+  - libuuid=2.42.2=h5347b49_0
+  - libwebp=1.3.2=h9f374a3_1
+  - libwebp-base=1.3.2=h5eee18b_1
+  - libxcb=1.17.0=h8a09558_0
+  - libxcrypt=4.4.36=hd590300_1
+  - libzlib=1.2.13=h4ab18f5_6
+  - minimap2=2.28=he4a0461_3
+  - ncurses=6.6=hdb14827_0
+  - openjdk=21.0.6=h38aa4c6_0
+  - _openmp_mutex=4.5=20_gnu
+  - openssl=3.6.3=h35e630c_0
+  - pango=1.50.7=h668f713_2
+  - pcre2=10.46=hf426167_0
+  - perl=5.32.1=0_h5eee18b_perl5
+  - perl-filesys-df=0.92=pl5321h7b50bb2_9
+  - perl-threaded=5.32.1=hdfd78af_1
+  - pilon=1.24=hdfd78af_0
+  - pip=25.2=pyh8b19718_0
+  - pixman=0.46.4=h86ba9f7_1
+  - pthread-stubs=0.4=hb9d3cd8_1002
+  - python=3.9.19=h0755675_0_cpython
+  - python_abi=3.9=8_cp39
+  - racon=1.4.20=hd03093a_2
+  - readline=8.3=h853b02a_0
+  - samtools=1.21=h50ea8bc_0
+  - setuptools=80.9.0=pyhff2d567_0
+  - tk=8.6.13=noxft_h4845f30_101
+  - tzdata=2025c=hc9c84f9_1
+  - wheel=0.45.1=pyhd8ed1ab_1
+  - xorg-libx11=1.8.13=he1eb515_0
+  - xorg-libxau=1.0.12=hb03c661_1
+  - xorg-libxdmcp=1.1.5=hb03c661_1
+  - xorg-libxext=1.3.6=h9b100fa_0
+  - xorg-libxrender=0.9.12=hb9d3cd8_0
+  - xorg-xorgproto=2024.1=hb9d3cd8_1
+  - xz=5.8.3=ha02ee65_0
+  - xz-gpl-tools=5.8.3=ha02ee65_0
+  - xz-tools=5.8.3=hb03c661_0
+  - zlib=1.2.13=h4ab18f5_6
+  - zstd=1.5.6=ha6fb4c9_0
