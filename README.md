@@ -35,12 +35,13 @@ cd NosoGraph
 
 ### NosoGraph pipeline
 
-The NosoGraph sequencing pipeline supports hybrid and long-read bacterial genome assembly (Flye, Canu), iterative polishing (Racon, Pilon), and quality assessment (CheckM2). It is implemented in [Nextflow](https://www.nextflow.io/) DSL2, which manages Conda environments automatically and supports execution on local machines and HPC clusters (SLURM).
+The NosoGraph sequencing pipeline supports hybrid and long-read bacterial genome assembly (Flye, Canu), iterative polishing (Racon, Pilon), and quality assessment (CheckM2). It is implemented in [Nextflow](https://www.nextflow.io/) DSL2 and runs on local machines and HPC clusters (SLURM).
 
 #### Requirements
 
 - [Nextflow](https://www.nextflow.io/docs/latest/install.html) ≥ 23.04
-- [Conda](https://docs.conda.io/) or [Micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html)
+- [Singularity / Apptainer](https://apptainer.org/) (default execution engine)
+- [Conda](https://docs.conda.io/) or [Micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html) — only if you opt into `-profile micromamba` instead of containers
 
 Install Nextflow:
 
@@ -49,15 +50,16 @@ curl -s https://get.nextflow.io | bash
 mv nextflow ~/bin/
 ```
 
-Conda environments are created automatically by Nextflow on first run — no manual setup required. The assembly → polish → QC pipeline is vendored from [bioinformatics-workflows](https://github.com/minaminii/bioinformatics-workflows) under `modules/vendor/bacterial-assembly/`, which owns its own conda env; additional envs live in the top-level `conda/` directory.
+**Execution engine.** By default the pipeline runs each process from a frozen container image (Singularity/Apptainer) — this is the reproducible path, and it is the default because unreliable Conda releases made env-solving non-reproducible. Images are pulled on first run; no manual setup is required. Every vendored module carries both a `container` and a `conda` directive, so you can still fall back to Conda with `-profile micromamba` when a container runtime is unavailable.
 
-| Environment file | Purpose |
-|---|---|
-| `modules/vendor/bacterial-assembly/conda/bacterial-assembly.yaml` | Assembly, polishing, and QC tools (Flye, Canu, Racon, Pilon, BWA-mem2, SAMtools, CheckM2) |
-| `conda/blast.yaml` | BLAST and sequence comparison tools |
-| `conda/medaka.yaml` | Medaka neural-network polishing |
-| `conda/kg_export.yaml` | Knowledge-graph CSV exporter (`report/kg_export.py`; Python + pandas) |
-| `conda/meta_kg_export.yaml` | Metagenomics knowledge-graph CSV exporter (`report/meta_kg_export.py`; Python + pandas) |
+| `-profile` | Engine | When to use |
+|---|---|---|
+| _(none)_ / `standard` | Containers, local executor | Default |
+| `slurm` | Containers, SLURM executor | HPC clusters |
+| `micromamba` | Conda (via micromamba) | No container runtime available |
+| `test` | Neither (stub only) | `-stub-run` DAG validation |
+
+Container images live at `<container_registry>/bioinf-<tool>:<container_tag>` (default registry `ghcr.io/minaminii`, tag `latest`). Override the registry/tag with `--container_registry` / `--container_tag`, or pin `--container_tag` to an immutable digest for a locked release. Only the vendored assembly → polish → QC tooling from [bioinformatics-workflows](https://github.com/minaminii/bioinformatics-workflows) (under `modules/vendor/`) is containerised. The NosoGraph-owned CSV exporters (`report/*.py`) are plain pandas scripts that run on the host Python interpreter — install their dependency with `pip install -r requirements.txt` into the environment you launch Nextflow from.
 
 ---
 
@@ -204,7 +206,7 @@ nextflow run main.nf -profile slurm -resume ...
 
 #### Validating pipeline wiring (no data required)
 
-Use `-stub-run` with `-profile test` to verify the full DAG compiles and all process connections are correct without needing real input files or conda environments:
+Use `-stub-run` with `-profile test` to verify the full DAG compiles and all process connections are correct without needing real input files, containers, or conda environments:
 
 ```bash
 nextflow run main.nf -stub-run -profile test \
@@ -233,7 +235,7 @@ Expected output:
 [SUCCESS] completed=5 failed=0 cached=0
 ```
 
-The `-profile test` flag disables conda so the stub runs locally without any tools installed. Input file paths are not checked for existence in stub mode — any placeholder string works.
+The `-profile test` flag disables both the container and conda engines so the stub runs locally without any tools installed. Input file paths are not checked for existence in stub mode — any placeholder string works.
 
 ### NosoGraph knowledge graph
 
