@@ -152,17 +152,42 @@ jobs:
               continue
             fi
 
-            git subtree pull --prefix="$prefix" wf-vendor "$branch" --squash \
-              -m "chore(vendor): bump $m to $upstream_sha" || {
-                echo "::error::subtree pull failed for $m — likely a merge conflict; resolve locally." >&2
-                echo "| \`$m\` | \`$branch\` | \`$(git rev-parse --short "$before")\` | \`$upstream_sha\` | :x: conflict |" >> "$GITHUB_STEP_SUMMARY"
+            resolved_note=""
+            if ! git subtree pull --prefix="$prefix" wf-vendor "$branch" --squash \
+                 -m "chore(vendor): bump $m to $upstream_sha"; then
+              # subtree pull left a conflicted merge in progress. Vendored modules
+              # are upstream-owned — local edits should not exist — so auto-resolve
+              # every conflict in favour of upstream (discard local changes) and
+              # complete the merge. Any real (non-conflict) failure still aborts.
+              conflicts="$(git diff --name-only --diff-filter=U)"
+              if [ -z "$conflicts" ]; then
+                echo "::error::subtree pull failed for $m with no conflicts — real error, aborting." >&2
+                echo "| \`$m\` | \`$branch\` | \`$(git rev-parse --short "$before")\` | \`$upstream_sha\` | :x: error |" >> "$GITHUB_STEP_SUMMARY"
+                git merge --abort 2>/dev/null || true
                 exit 1
-              }
+              fi
+              echo "::warning::$m: auto-resolving to upstream, discarding local changes in:"
+              printf '%s\n' "$conflicts" | sed 's/^/  - /'
+              # Take the upstream (stage 3 / "theirs") version of each conflicted path;
+              # if upstream deleted it, remove it.
+              while IFS= read -r p; do
+                [ -z "$p" ] && continue
+                if git show ":3:$p" >/dev/null 2>&1; then
+                  git show ":3:$p" > "$p" && git add -- "$p"
+                else
+                  git rm -f -- "$p" >/dev/null
+                fi
+              done <<< "$conflicts"
+              git commit --no-gpg-sign \
+                -m "chore(vendor): bump $m to $upstream_sha (auto-resolved to upstream)" \
+                -m "Discarded local changes in: $(printf '%s ' $conflicts)"
+              resolved_note=" (local changes discarded)"
+            fi
             after="$(git rev-parse HEAD)"
             if [ "$before" = "$after" ]; then
               echo "| \`$m\` | \`$branch\` | - | \`$upstream_sha\` | up to date |" >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "| \`$m\` | \`$branch\` | \`$(git rev-parse --short "$before")\` | \`$upstream_sha\` | :white_check_mark: bumped |" >> "$GITHUB_STEP_SUMMARY"
+              echo "| \`$m\` | \`$branch\` | \`$(git rev-parse --short "$before")\` | \`$upstream_sha\` | :white_check_mark: bumped$resolved_note |" >> "$GITHUB_STEP_SUMMARY"
               CHANGED="yes"
             fi
             echo "::endgroup::"
@@ -189,7 +214,9 @@ jobs:
             --title "chore(vendor): bump vendored module(s) from upstream" \
             --body "Automated \`git subtree pull\` of vendored module(s) for input \`${{ inputs.module }}\`.
 
-          See the run summary for before/after commits.
+          See the run summary for before/after commits. Conflicts (if any) were
+          auto-resolved in favour of upstream — any module row marked \`(local changes
+          discarded)\` had downstream edits dropped; check the run log for the file list.
 
           :warning: **Merge this with a merge commit, not \"Squash and merge\"** — squashing would drop the \`git-subtree-*\` trailers and break the next pull. Vendor import commits stay unsigned; sign at release time."
 
