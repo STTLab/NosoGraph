@@ -1,10 +1,26 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# LOOSE conda spec — best-effort fallback for `-profile micromamba`/conda runs.
+# The reproducible distribution is the container image built from this file
+# (ghcr.io/minaminii/bioinf-checkm2, pinned by digest); see containers/README.md.
+#
+# Single source of truth for the SHARED checkm2 env: both the bacterial-assembly
+# and assembly-qc-iden modules symlink this one file (their conda/qc.yaml and
+# conda/checkm2.yaml respectively), so there is nothing to keep in sync. Edit it
+# here; the subtree-split pipeline materializes real copies for vendored modules.
 name: bacterial-assembly-qc
 channels:
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
   # CheckM2 pulls a newer python + tensorflow/zlib stack that cannot co-solve with
   # the AVX2-safe assembler pins (flye 2.9.5 / racon 1.4.20 on python 3.9), so it
-  # gets its own env. See conda/bacterial-assembly.yaml for the AVX2 rationale.
+  # gets its own env. See envs/bacterial-assembly.yaml for the AVX2 rationale.
+  # tensorflow is the AVX2-sensitive piece; conda-forge builds run AVX2-free. Pin
+  # tensorflow to a known AVX2-free build if CheckM2 ever SIGILLs on no-AVX2 hosts.
+  #
+  # numpy must stay <2: checkm2 pulls tensorflow 2.17, whose compiled C-extensions
+  # (e.g. _pywrap_checkpoint_reader) break against numpy>=2.1 with
+  # "SystemError: initialization of _pywrap_checkpoint_reader raised unreported exception".
   - checkm2
+  - numpy <2

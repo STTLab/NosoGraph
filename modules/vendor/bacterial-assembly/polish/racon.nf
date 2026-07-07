@@ -10,6 +10,7 @@
 process RACON_POLISH {
     label 'assemblers'
     conda "${moduleDir}/../conda/bacterial-assembly.yaml"
+    container params.images.bacterial_assembly
     publishDir "${params.outdir}/02_polish/01_racon", mode: 'copy'
 
     input:

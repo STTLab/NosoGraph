@@ -1,6 +1,7 @@
 process CHECKM2 {
     label 'qc_tools'
     conda "${moduleDir}/../conda/qc.yaml"
+    container params.images.checkm2
     publishDir "${params.outdir}", mode: 'copy'
 
     input:
