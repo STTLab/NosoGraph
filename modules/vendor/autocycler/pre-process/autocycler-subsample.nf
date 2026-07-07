@@ -1,7 +1,17 @@
+/*
+ * Copyright (c) 2026 Sara Wattanasombat
+ * SPDX-License-Identifier: MPL-2.0
+ *
+ * This Source Code Form is subject to the terms of the
+ * Mozilla Public License, v. 2.0. If a copy of the MPL
+ * was not distributed with this file, You can obtain one at
+ * https://mozilla.org/MPL/2.0/
+ */
 process AUTOCYCLER_SUBSAMPLE {
     // Subsample the long-read set into multiple independent files for assembly.
     label 'autocycler'
     conda "${moduleDir}/../conda/autocycler.yaml"
+    container params.images.autocycler
     publishDir "${params.outdir}/01_assembly/subsampled_reads", mode: 'copy'
 
     input:
