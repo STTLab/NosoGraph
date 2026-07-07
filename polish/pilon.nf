@@ -10,6 +10,7 @@
 process PILON_POLISH {
     label 'assemblers'
     conda "${moduleDir}/../conda/bacterial-assembly.yaml"
+    container params.images.bacterial_assembly
     publishDir "${params.outdir}/02_polish/02_pilon", mode: 'copy'
 
     input:
@@ -21,7 +22,7 @@ process PILON_POLISH {
     path "pilon_final.fasta"
 
     script:
-    def half_threads = Math.max(1, (int)(params.threads * 0.5))
+    def half_threads = Math.max(1, ((params.threads as int) * 0.5) as int)
     def sort_threads = Math.max(0, half_threads - 1)
     """
     CONTIGS=${contigs}
