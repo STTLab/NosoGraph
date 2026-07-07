@@ -1,7 +1,17 @@
+/*
+ * Copyright (c) 2026 Sara Wattanasombat
+ * SPDX-License-Identifier: MPL-2.0
+ *
+ * This Source Code Form is subject to the terms of the
+ * Mozilla Public License, v. 2.0. If a copy of the MPL
+ * was not distributed with this file, You can obtain one at
+ * https://mozilla.org/MPL/2.0/
+ */
 process AUTOCYCLER_ASSEMBLE {
     // One assembly per (assembler, subsample) combination, via `autocycler helper`.
     label 'autocycler_assembly'
     conda "${moduleDir}/../conda/autocycler.yaml"
+    container params.images.autocycler
     publishDir "${params.outdir}/01_assembly/assemblies", mode: 'copy'
 
     input:
@@ -13,6 +23,11 @@ process AUTOCYCLER_ASSEMBLE {
     script:
     id = sample.baseName.replaceAll(/^sample_/, '')
     """
+    # Force a short, writable \$TMPDIR. `autocycler helper` builds scratch there,
+    # and flye's multiprocessing.Manager() opens an AF_UNIX socket under it (path
+    # capped at ~108 chars, so the long Nextflow workdir overflows). /tmp is short
+    # and Singularity-writable; also avoids a read-only inherited host TMPDIR.
+    export TMPDIR=/tmp
     autocycler helper ${assembler} \\
         --reads ${sample} \\
         --out_prefix ${assembler}_${id} \\
@@ -31,6 +46,7 @@ process AUTOCYCLER_COMPRESS {
     // Compress all input assemblies into a unitig graph.
     label 'autocycler'
     conda "${moduleDir}/../conda/autocycler.yaml"
+    container params.images.autocycler
 
     input:
     path 'assemblies/*'
@@ -54,6 +70,7 @@ process AUTOCYCLER_CLUSTER {
     // Cluster the contigs into putative genomic units (qc_pass clusters).
     label 'autocycler'
     conda "${moduleDir}/../conda/autocycler.yaml"
+    container params.images.autocycler
 
     input:
     path autocycler_out
@@ -79,6 +96,7 @@ process AUTOCYCLER_TRIM_RESOLVE {
     // so the collected GFAs don't collide on staging.
     label 'autocycler'
     conda "${moduleDir}/../conda/autocycler.yaml"
+    container params.images.autocycler
 
     input:
     path cluster
@@ -103,6 +121,7 @@ process AUTOCYCLER_COMBINE {
     // Combine the resolved clusters into the final consensus assembly.
     label 'autocycler'
     conda "${moduleDir}/../conda/autocycler.yaml"
+    container params.images.autocycler
     publishDir "${params.outdir}/01_assembly", mode: 'copy'
 
     input:

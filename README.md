@@ -46,12 +46,16 @@ nextflow run main.nf --pipeline autocycler --long_reads reads.fastq.gz
 | `--subsample_count` | `4` | Number of read subsamples. |
 | `--threads` | `4` | Threads per assembly job. |
 | `--outdir` | `results` | Output directory. |
+| `--container_registry` | `ghcr.io/minaminii` | Registry for the `bioinf-*` images (`-profile singularity`). |
+| `--container_tag` | `latest` | Image tag; use a git SHA or `@sha256:<digest>` for a locked release. |
+| `--singularity_binds` | _(empty)_ | Extra `singularity` bind flags. Not needed here (no external DB — `autoMounts` covers the work dir + staged reads); set only for unusual layouts. |
 
 ### Profiles
 
 | Profile | Effect |
 |----|----|
 | `micromamba` | Resolve the inline conda env with micromamba (`conda.useMicromamba`). |
+| `singularity` | Run the frozen `bioinf-autocycler` container image instead of solving conda (disables conda; enables Singularity with `autoMounts`). |
 | `test` | Disable conda so `-stub-run` works with no tools installed. |
 
 ### Notes
@@ -62,6 +66,15 @@ nextflow run main.nf --pipeline autocycler --long_reads reads.fastq.gz
   subsample step is stochastic) or the conda env changes.
 - **AVX2:** the conda env pins `racon`, `flye`, and `python` to builds that run on CPUs
   without AVX2 (see `conda/autocycler.yaml`). Relax on modern hardware.
+- **Reproducible distribution = the container image.** `-profile singularity` runs the frozen
+  `bioinf-autocycler` image (the conda solve happens once at build time and is frozen in the
+  layers). Conda (`-profile micromamba`) re-solves the loose yaml against rolling channels and
+  is the best-effort fallback for hosts without Singularity. Build/publish/pin instructions
+  live in [`containers/README.md`](../../../containers/README.md).
+- **`$TMPDIR` under Singularity:** the assembly steps force `TMPDIR=/tmp` inside the container.
+  `autocycler helper` and flye's `multiprocessing` build scratch there, and flye's AF_UNIX
+  socket path (~108-char cap) overflows if `$TMPDIR` is the long Nextflow work dir; `/tmp` is
+  short and Singularity-writable.
 
 ## Test — Autocycler demo dataset
 
@@ -84,3 +97,25 @@ nextflow run ./autocycler -profile micromamba \
 
 Expected: `results/01_assembly/consensus_assembly.fasta` — a ~242 kb assembly you can compare
 against `truth.fasta`.
+
+## Software dependencies
+
+This pipeline ships each environment as a frozen Singularity/GHCR image (the reproducible
+artifact; see [`containers/README.md`](../../../containers/README.md)) and, as a loose
+fallback, the Conda environment files in `conda/*.yaml`.
+
+A non-exhaustive list of tools includes Nextflow (Apache 2.0) and other bioinformatics tools defined in the Conda environment specifications.
+
+All tools are distributed under their respective licenses. Please consult each tool’s documentation for license information.
+
+---
+
+## License
+
+SPDX-License-Identifier: MPL-2.0
+
+Copyright © 2026 Sara Wattanasombat
+
+This project is licensed under the Mozilla Public License 2.0 (MPL-2.0).
+A copy of the license is included in the LICENSE file, or available at https://mozilla.org/MPL/2.0/.
+
