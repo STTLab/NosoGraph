@@ -14,7 +14,9 @@ nextflow.enable.dsl=2
 
 process META_KG_EXPORT {
     tag "${params.sample_id}"
-    conda "${moduleDir}/../../conda/meta_kg_export.yaml"
+    // Runs on the host Python (pandas only — see requirements.txt). No conda/container:
+    // it's a trivial CSV writer, not a bioinformatics tool, so it needs neither the
+    // frozen-image guarantee nor a solved env.
     publishDir "${params.outdir}/${params.sample_id}", mode: 'copy'
 
     input:
