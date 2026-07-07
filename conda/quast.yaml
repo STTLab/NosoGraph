@@ -1,4 +1,11 @@
 # SPDX-License-Identifier: MPL-2.0
+#
+# LOOSE conda spec — best-effort fallback for `-profile micromamba`/conda runs.
+# The reproducible distribution is the container image built from this file
+# (ghcr.io/minaminii/bioinf-quast, pinned by digest); see containers/README.md.
+#
+# Single source of truth: the assembly-qc-iden module symlinks this file. Edit it
+# here; the subtree-split pipeline materializes a real copy for vendored modules.
 name: assembly-qc-iden-quast
 channels:
   - conda-forge

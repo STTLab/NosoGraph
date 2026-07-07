@@ -13,6 +13,7 @@ process BLAST {
     // normalizer keeps bash $-fields literal; Nextflow values come in via !{...}.
     label 'blast'
     conda "${moduleDir}/../conda/blast.yaml"
+    container params.images.blast
     publishDir "${params.outdir}", mode: 'copy'
 
     input:
