@@ -63,6 +63,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Do NOT persist the built-in GITHUB_TOKEN as a global
+          # http.https://github.com/.extraheader — it would override the
+          # x-access-token creds in the wf-vendor remote URL and make the
+          # vendor fetch auth as GITHUB_TOKEN (no access -> 404). We auth every
+          # remote explicitly with a token-in-URL instead.
+          persist-credentials: false
 
       - name: Configure git (unsigned; signing happens at release)
         run: |
@@ -174,7 +180,9 @@ jobs:
           BASE_BRANCH: ${{ steps.bump.outputs.base_branch }}
         run: |
           set -euo pipefail
-          git push origin "$WORK_BRANCH"
+          # persist-credentials is off, so authenticate the push explicitly with
+          # the workflow's GITHUB_TOKEN (permissions: contents: write).
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$WORK_BRANCH"
           gh pr create \
             --base "$BASE_BRANCH" \
             --head "$WORK_BRANCH" \
