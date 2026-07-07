@@ -60,12 +60,16 @@ nextflow run ./assembly-qc-iden \
 | `--threads` | `4` | Threads per process. |
 | `--quast_mem` / `--checkm2_mem` / `--blast_mem` | `8 GB` / `32 GB` / `16 GB` | Per-process memory. |
 | `--outdir` | `results` | Output directory. |
+| `--container_registry` | `ghcr.io/minaminii` | Registry for the `bioinf-*` images (`-profile singularity`). |
+| `--container_tag` | `latest` | Image tag; use a git SHA or `@sha256:<digest>` for a locked release. |
+| `--singularity_binds` | _(derived)_ | Extra `singularity` bind flags. Defaults to `-B <parent of --checkm2_db>` and `-B <parent of --blast_db>`; override e.g. `-B /db/root`. |
 
 ### Profiles
 
 | Profile | Effect |
 |----|----|
 | `micromamba` | Resolve the inline conda envs with micromamba (`conda.useMicromamba`). |
+| `singularity` | Run the frozen `bioinf-*` container images instead of solving conda (disables conda; enables Singularity with `autoMounts` + `--singularity_binds`). |
 | `test` | Disable conda **and** drop all process memory requests to 1 GB, so `-stub-run` works on any node with no tools installed. |
 
 ### Output contract notes
@@ -82,11 +86,17 @@ nextflow run ./assembly-qc-iden \
 
 ### Notes
 
+- **Reproducible distribution = the container images.** `-profile singularity` runs the frozen
+  `bioinf-quast` / `bioinf-checkm2` / `bioinf-blast` images (the conda solve happens once at
+  build time and is frozen in the layers). Conda (`-profile micromamba`) re-solves the loose
+  yamls against rolling channels and is the best-effort fallback for hosts without Singularity.
+  Build/publish/pin instructions live in [`containers/README.md`](../../../containers/README.md).
 - **AVX2:** the target test server (Xeon E5-2670 v0) lacks AVX2. `conda/quast.yaml`
   (`quast=5.2.0`) and `conda/blast.yaml` (`blast=2.16.0`) have no mandatory AVX2 codepath;
-  CheckM2's tensorflow stack lives in its own env (`conda/checkm2.yaml`) for the same
-  isolation reason as the `bacterial-assembly` module. Pin to AVX2-safe builds if any tool
-  ever SIGILLs.
+  CheckM2's tensorflow stack lives in its own env (`conda/checkm2.yaml`, pinning `numpy <2`
+  so tensorflow 2.17's C-extensions don't crash) for the same isolation reason as the
+  `bacterial-assembly` module — that yaml is the build source for the shared `bioinf-checkm2`
+  image. Pin to AVX2-safe builds if any tool ever SIGILLs.
 - **BLAST DB:** written DB-agnostic (`--blast_db` = any formatted nucleotide DB), so you
   can validate against a small DB (e.g. SSU) while production points at core_nt.
 
@@ -106,8 +116,9 @@ Expect `QUAST`, `CHECKM2`, and `BLAST` to execute as stubs and emit the §7 file
 
 ## Software dependencies
 
-This pipeline uses external software managed via Conda environment files located in
-`conda/*.yaml`.
+This pipeline ships each environment as a frozen Singularity/GHCR image (the reproducible
+artifact; see [`containers/README.md`](../../../containers/README.md)) and, as a loose
+fallback, the Conda environment files in `conda/*.yaml`.
 
 A non-exhaustive list of tools includes Nextflow (Apache 2.0), QUAST, CheckM2, and
 BLAST+.

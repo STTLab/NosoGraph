@@ -12,6 +12,7 @@ process CHECKM2 {
     // (columns Completeness, Contamination — consumed by NosoGraph's _read_checkm2; §7.2).
     label 'checkm2'
     conda "${moduleDir}/../conda/checkm2.yaml"
+    container params.images.checkm2
     publishDir "${params.outdir}", mode: 'copy'
 
     input:

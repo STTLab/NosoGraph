@@ -53,16 +53,25 @@ nextflow run main.nf --pipeline metagenomics \
 | `--kraken2_mem` | `64 GB` | Memory request. Set ≈ the DB size; raise for the full Standard DB. |
 | `--threads` | `4` | Threads per job. |
 | `--outdir` | `results` | Output directory. |
+| `--container_registry` | `ghcr.io/minaminii` | Registry for the `bioinf-*` images (`-profile singularity`). |
+| `--container_tag` | `latest` | Image tag; use a git SHA or `@sha256:<digest>` for a locked release. |
+| `--singularity_binds` | _(derived)_ | Extra `singularity` bind flags. Defaults to `-B <parent of --kraken2_db>`; override e.g. `-B /db/root` when the DB dir holds outside-pointing symlinks. |
 
 ### Profiles
 
 | Profile | Effect |
 |----|----|
 | `micromamba` | Resolve the inline conda env with micromamba (`conda.useMicromamba`). |
+| `singularity` | Run the frozen `bioinf-kraken2` container image instead of solving conda (disables conda; enables Singularity with `autoMounts` + `--singularity_binds`). |
 | `test` | Disable conda **and** drop the `kraken2` memory request to 1 GB, so `-stub-run` works on any node with no tools installed. |
 
 ### Notes
 
+- **Reproducible distribution = the container image.** `-profile singularity` runs the frozen
+  `bioinf-kraken2` image (the conda solve happens once at build time and is frozen in the
+  layers). Conda (`-profile micromamba`) re-solves the loose yaml against rolling channels and
+  is the best-effort fallback for hosts without Singularity. Build/publish/pin instructions
+  live in [`containers/README.md`](../../../containers/README.md).
 - **Memory:** Kraken2 loads the DB hash into RAM. The full Standard DB needs tens of
   GB; size `--kraken2_mem` to your DB (or use a capped `*-8` DB on small nodes).
 - **AVX2:** `conda/kraken2.yaml` pins `kraken2=2.1.3`, which has no AVX2 requirement and
@@ -81,7 +90,9 @@ Expect `KRAKEN2` to execute as a stub and emit `CI16.kraken2.report.txt`.
 
 ## Software dependencies
 
-This pipeline uses external software managed via Conda environment files located in `conda/*.yaml`.
+This pipeline ships each environment as a frozen Singularity/GHCR image (the reproducible
+artifact; see [`containers/README.md`](../../../containers/README.md)) and, as a loose
+fallback, the Conda environment files in `conda/*.yaml`.
 
 A non-exhaustive list of tools includes Nextflow (Apache 2.0) and Kraken2.
 

@@ -1,4 +1,11 @@
 # SPDX-License-Identifier: MPL-2.0
+#
+# LOOSE conda spec — best-effort fallback for `-profile micromamba`/conda runs.
+# The reproducible distribution is the container image built from this file
+# (ghcr.io/minaminii/bioinf-blast, pinned by digest); see containers/README.md.
+#
+# Single source of truth: the assembly-qc-iden module symlinks this file. Edit it
+# here; the subtree-split pipeline materializes a real copy for vendored modules.
 name: assembly-qc-iden-blast
 channels:
   - conda-forge
@@ -9,6 +16,4 @@ dependencies:
   # for SSE/AVX at startup and falls back), so 2.16.0 runs on the Xeon E5-2670 v0 (no
   # AVX2) test server without illegal-instruction faults. Pin to an earlier build if a
   # future release ever SIGILLs there (same policy as the other vendored conda envs).
-  # NOTE: the SOW refers to a pre-existing parent-repo conda/blast.yaml; none existed in
-  # this repo, so this file establishes the BLAST env at the contracted pin.
   - blast=2.16.0
