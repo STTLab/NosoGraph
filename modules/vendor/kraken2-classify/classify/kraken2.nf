@@ -12,6 +12,7 @@ process KRAKEN2 {
     // standard 6-column kraken-style report consumed downstream by META_KG_EXPORT.
     label 'kraken2'
     conda "${moduleDir}/../conda/kraken2.yaml"
+    container params.images.kraken2
     publishDir "${params.outdir}/kraken2", mode: 'copy'
 
     input:
