@@ -1,4 +1,5 @@
 # Third-party Python dependencies for the knowledge-graph CSV exporters
-# (report/kg_export.py and report/meta_kg_export.py). Nextflow provisions these
-# automatically via conda/kg_export.yaml and conda/meta_kg_export.yaml.
+# (report/kg_export.py and report/meta_kg_export.py). These processes run on the host
+# Python interpreter — they are not containerised or conda-managed — so install these
+# into the environment Nextflow launches from: pip install -r requirements.txt
 pandas
