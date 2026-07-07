@@ -1,0 +1,190 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# Manually-triggered bump of the git-subtree vendored Nextflow modules under
+# modules/vendor/<name>/. Each module is a subtree split of the private monorepo
+# minaminii/bioinformatics-workflows, published on a per-module branch
+# `workflow-<name>` (see .claude/contracts/.../*-vendor-contract.md).
+#
+# Trigger it from the branch you want to update (e.g. v0.1.x-demo.1 or main):
+# the PR it opens targets whatever ref you dispatched on.
+#
+# Prerequisites (repo settings):
+#   - Secret   VENDOR_REPO_TOKEN : a PAT (or fine-grained token) with `contents:read`
+#                                  on minaminii/bioinformatics-workflows. GITHUB_TOKEN
+#                                  cannot reach that separate private repo.
+#   - Variable VENDOR_REPO_SLUG  : optional; defaults to
+#                                  minaminii/bioinformatics-workflows.
+#
+# NOTE ON MERGING THE PR: merge it with a real MERGE COMMIT, not "Squash and merge".
+# `git subtree --squash` writes `git-subtree-dir` / `git-subtree-split` trailers into
+# the squash commit; a squash-merge would discard them and break the next pull.
+
+name: Bump vendored modules
+
+on:
+  workflow_dispatch:
+    inputs:
+      module:
+        description: Which vendored module to bump from upstream
+        type: choice
+        default: all
+        options:
+          - all
+          - assembly-qc-iden
+          - autocycler
+          - bacterial-assembly
+          - kraken2-classify
+      dry_run:
+        description: Fetch and report available updates without opening a PR
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: bump-vendored-modules
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    env:
+      VENDOR_SLUG: ${{ vars.VENDOR_REPO_SLUG || 'minaminii/bioinformatics-workflows' }}
+      # module dir  ->  upstream split branch. Edit here if a module's branch differs.
+      MODULE_BRANCHES: |
+        assembly-qc-iden=workflow-assembly-qc-iden
+        autocycler=workflow-autocycler
+        bacterial-assembly=workflow-bacterial-assembly
+        kraken2-classify=workflow-kraken2-classify
+    steps:
+      - name: Checkout (full history — subtree needs it)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git (unsigned; signing happens at release)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config commit.gpgsign false
+
+      - name: Add vendor remote
+        env:
+          VENDOR_TOKEN: ${{ secrets.VENDOR_REPO_TOKEN }}
+        run: |
+          if [ -z "$VENDOR_TOKEN" ]; then
+            echo "::error::Secret VENDOR_REPO_TOKEN is not set; cannot reach the private vendor repo." >&2
+            exit 1
+          fi
+          git remote add wf-vendor "https://x-access-token:${VENDOR_TOKEN}@github.com/${VENDOR_SLUG}.git"
+
+      - name: Select modules
+        id: select
+        run: |
+          if [ "${{ inputs.module }}" = "all" ]; then
+            echo "modules=assembly-qc-iden autocycler bacterial-assembly kraken2-classify" >> "$GITHUB_OUTPUT"
+          else
+            echo "modules=${{ inputs.module }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump subtrees
+        id: bump
+        env:
+          MODULES: ${{ steps.select.outputs.modules }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          branch_for() {
+            printf '%s\n' "$MODULE_BRANCHES" | sed -n "s/^$1=//p" | head -n1
+          }
+
+          BASE_BRANCH="${GITHUB_REF_NAME}"
+          WORK_BRANCH="vendor-bump/${GITHUB_RUN_ID}"
+          git checkout -b "$WORK_BRANCH"
+
+          CHANGED=""
+          {
+            echo "## Vendored module bump"
+            echo ""
+            echo "Base branch: \`${BASE_BRANCH}\`"
+            echo ""
+            echo "| module | upstream branch | before | after | status |"
+            echo "|---|---|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for m in $MODULES; do
+            branch="$(branch_for "$m")"
+            prefix="modules/vendor/$m"
+            if [ -z "$branch" ]; then
+              echo "::warning::No upstream branch mapped for '$m'; skipping."
+              echo "| \`$m\` | (unmapped) | - | - | :warning: skipped |" >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            if [ ! -d "$prefix" ]; then
+              echo "::warning::$prefix does not exist; skipping."
+              echo "| \`$m\` | \`$branch\` | - | - | :warning: no such prefix |" >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+
+            echo "::group::Fetch + pull $m"
+            git fetch --no-tags wf-vendor "$branch"
+            upstream_sha="$(git rev-parse --short FETCH_HEAD)"
+            before="$(git rev-parse HEAD)"
+
+            if [ "$DRY_RUN" = "true" ]; then
+              # Report whether the upstream tip is already contained in our history.
+              if git merge-base --is-ancestor FETCH_HEAD HEAD 2>/dev/null; then
+                echo "| \`$m\` | \`$branch\` | - | \`$upstream_sha\` | up to date |" >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "| \`$m\` | \`$branch\` | - | \`$upstream_sha\` | :arrow_up: update available |" >> "$GITHUB_STEP_SUMMARY"
+                CHANGED="yes"
+              fi
+              echo "::endgroup::"
+              continue
+            fi
+
+            git subtree pull --prefix="$prefix" wf-vendor "$branch" --squash \
+              -m "chore(vendor): bump $m to $upstream_sha" || {
+                echo "::error::subtree pull failed for $m — likely a merge conflict; resolve locally." >&2
+                echo "| \`$m\` | \`$branch\` | \`$(git rev-parse --short "$before")\` | \`$upstream_sha\` | :x: conflict |" >> "$GITHUB_STEP_SUMMARY"
+                exit 1
+              }
+            after="$(git rev-parse HEAD)"
+            if [ "$before" = "$after" ]; then
+              echo "| \`$m\` | \`$branch\` | - | \`$upstream_sha\` | up to date |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "| \`$m\` | \`$branch\` | \`$(git rev-parse --short "$before")\` | \`$upstream_sha\` | :white_check_mark: bumped |" >> "$GITHUB_STEP_SUMMARY"
+              CHANGED="yes"
+            fi
+            echo "::endgroup::"
+          done
+
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "work_branch=$WORK_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "base_branch=$BASE_BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Open pull request
+        if: steps.bump.outputs.changed == 'yes' && inputs.dry_run == false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORK_BRANCH: ${{ steps.bump.outputs.work_branch }}
+          BASE_BRANCH: ${{ steps.bump.outputs.base_branch }}
+        run: |
+          set -euo pipefail
+          git push origin "$WORK_BRANCH"
+          gh pr create \
+            --base "$BASE_BRANCH" \
+            --head "$WORK_BRANCH" \
+            --title "chore(vendor): bump vendored module(s) from upstream" \
+            --body "Automated \`git subtree pull\` of vendored module(s) for input \`${{ inputs.module }}\`.
+
+          See the run summary for before/after commits.
+
+          :warning: **Merge this with a merge commit, not \"Squash and merge\"** — squashing would drop the \`git-subtree-*\` trailers and break the next pull. Vendor import commits stay unsigned; sign at release time."
+
+      - name: Nothing to do
+        if: steps.bump.outputs.changed != 'yes'
+        run: echo "No vendored module had upstream changes. Nothing to open." | tee -a "$GITHUB_STEP_SUMMARY"
