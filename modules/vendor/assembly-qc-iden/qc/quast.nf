@@ -15,6 +15,7 @@ process QUAST {
     // omitted (§7.1).
     label 'quast'
     conda "${moduleDir}/../conda/quast.yaml"
+    container params.images.quast
     publishDir "${params.outdir}", mode: 'copy'
 
     input:
