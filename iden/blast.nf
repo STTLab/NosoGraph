@@ -23,7 +23,7 @@ process BLAST {
     path "blast/",               emit: results
     path "versions/blast.txt",   emit: versions
 
-    shell:
+    script:
     if (!params.blast_db) error "BLAST requires --blast_db (formatted nucleotide DB prefix)"
     '''
     mkdir -p blast versions
