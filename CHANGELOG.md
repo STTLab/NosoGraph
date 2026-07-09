@@ -13,6 +13,12 @@ Minor bump from `0.1.1-demo.1`. The headline change is a new default runtime:
 the pipeline now executes in **containers** rather than conda. This changes the
 behaviour of the default invocation, hence the minor bump on the `0.x` line.
 
+> **Compatibility — minimum Nextflow raised.** The local KG exporter modules now
+> use Nextflow **static typing** (`nextflow.enable.types`), a **preview feature**.
+> Older Nextflow releases will fail to parse `modules/local/*.nf`, so this release
+> requires **Nextflow ≥ 26.04.4** (the version it is verified against; being a
+> preview, syntax/behaviour may still change in future Nextflow releases).
+
 ### Added
 - **Version manifest.** NosoGraph now declares its own `manifest.version` in
   `nextflow.config` (previously only the vendored modules carried a version).
@@ -32,6 +38,10 @@ behaviour of the default invocation, hence the minor bump on the `0.x` line.
 - **KG exporters (`KG_EXPORT` / `META_KG_EXPORT`) run on host Python** (pandas)
   instead of a conda environment; only the vendored bioinformatics tools are
   containerised.
+- **KG exporter modules migrated to typed-DSL process I/O** — `nextflow.enable.types`
+  with typed `: Path` inputs and `files()` outputs (`files()`, not `file()`, since
+  the `kg/*.csv` output glob yields multiple files). Vendored modules are left
+  untyped (owned upstream). See the compatibility note above re: minimum Nextflow.
 - Vendored modules bumped from upstream (assembly-qc-iden, autocycler,
   bacterial-assembly, kraken2-classify); kraken2-classify conda pin updated.
 
