@@ -12,6 +12,8 @@
  */
 nextflow.enable.dsl=2
 
+nextflow.enable.types = true
+
 process META_KG_EXPORT {
     tag "${params.sample_id}"
     // Runs on the host Python (pandas only — see requirements.txt). No conda/container:
@@ -20,10 +22,10 @@ process META_KG_EXPORT {
     publishDir "${params.outdir}/${params.sample_id}", mode: 'copy'
 
     input:
-    path kraken2_report
+    kraken2_report: Path
 
     output:
-    path "kg/*.csv"
+    files("kg/*.csv")
 
     script:
     def reads_arg = params.long_reads ? "--reads ${file(params.long_reads)}" : ""
