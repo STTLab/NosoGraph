@@ -1,0 +1,16 @@
+sctid,preferred_term,fully_specified_name,concept_label,semantic_tag
+14669001,Acute kidney injury,Acute kidney injury (disorder),Disorder,Disorder
+161451004,H/O: gout,History of gout (situation),Situation,Situation
+161615003,History of surgery,History of surgery (situation),Situation,Situation
+20568009,"Urinary catheter, device","Urinary catheter, device (physical object)",Device,Physical object
+363351006,Malignant neoplasm of rectum,Malignant neoplasm of rectum (disorder),Disorder,Disorder
+419099009,Dead,Dead (finding),Finding,Finding
+429479009,History of radiation therapy,History of radiation therapy (situation),Situation,Situation
+43064006,Hydronephrosis,Hydronephrosis (disorder),Disorder,Disorder
+469532008,Intravascular catheter guidewire extension,Intravascular catheter guidewire extension (physical object),Device,Physical object
+53084003,Bacterial pneumonia,Bacterial pneumonia (disorder),Disorder,Disorder
+59621000,Essential hypertension,Essential hypertension (disorder),Disorder,Disorder
+60046008,Pleural effusion,Pleural effusion (disorder),Disorder,Disorder
+60853003,Disorder of magnesium metabolism,Disorder of magnesium metabolism (disorder),Disorder,Disorder
+82449006,"Peripheral intravenous catheter, device","Peripheral intravenous catheter, device (physical object)",Device,Physical object
+95570007,Kidney stone,Kidney stone (disorder),Disorder,Disorder

@@ -1,0 +1,3 @@
+patient_id,admission_id,ward_id,length_of_stay
+P-sample_01,A-sample_01,PRI-TAWAN-06,7
+P-sample_02,A-sample_02,SURG-M-02,25

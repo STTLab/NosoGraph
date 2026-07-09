@@ -1,0 +1,10 @@
+antibiotic_id,name,abbreviation,class,description
+AN,Amikacin,AN,Aminoglycoside,Gram-negative
+CI,Ciprofloxacin,CI,Fluoroquinolone,Broad-spectrum
+CZ,Ceftazidime,CZ,Cephalosporin (3rd gen),Gram-negative
+FEP,Cefepime,FEP,Cephalosporin (4th gen),Broad Gram-negative
+IP,Imipenem,IP,Carbapenem,Broad-spectrum
+LX,Levofloxacin,LX,Fluoroquinolone,Broad-spectrum
+ME,Meropenem,ME,Carbapenem,Broad-spectrum
+TX,Ticarcillin,TX,Penicillin,Gram-negative
+TZ,Piperacillin/Tazobactam,TZ,Penicillin + β-lactamase inhibitor,Broad Gram-negative
