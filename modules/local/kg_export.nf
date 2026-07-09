@@ -10,6 +10,8 @@
  */
 nextflow.enable.dsl=2
 
+nextflow.enable.types = true
+
 process KG_EXPORT {
     tag "${params.sample_id}"
     // Runs on the host Python (pandas only — see requirements.txt). No conda/container:
@@ -18,13 +20,13 @@ process KG_EXPORT {
     publishDir "${params.outdir}/${params.sample_id}", mode: 'copy'
 
     input:
-    path assembly_fasta
-    path flye_info
-    path checkm2_dir
-    path blast_iden_dir
+    assembly_fasta: Path
+    flye_info: Path
+    checkm2_dir: Path
+    blast_iden_dir: Path
 
     output:
-    path "kg/*.csv"
+    files("kg/*.csv")
 
     script:
     def fastq_abs = file(params.long_reads)
