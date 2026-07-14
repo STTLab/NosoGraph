@@ -26,20 +26,27 @@ workflow {
         if (!params.long_reads) error "Missing required param: --long_reads"
         if (!params.assembler)  error "Missing required param: --assembler (canu | flye)"
         if (!params.tech)       error "Missing required param: --tech (nanopore | nanopore-hq | pacbio)"
-        if ((params.pilon_iter as int) > 0 && (!params.read1 || !params.read2))
-            error "Pilon polishing (pilon_iter > 0) requires --read1 and --read2"
+        // Long-read-only runs are first-class: with no short reads there is nothing for
+        // Pilon to polish with, so drop the short-read polish instead of erroring. params
+        // is read-only at runtime, so resolve the effective value here and pass it in.
+        def pilon_iter = params.pilon_iter as int
+        if (pilon_iter > 0 && (!params.read1 || !params.read2)) {
+            log.info "No --read1/--read2 supplied: skipping Pilon short-read polishing (QC still runs)."
+            pilon_iter = 0
+        }
 
         long_reads_ch = channel.fromPath(params.long_reads, checkIfExists: false)
         read1_ch = params.read1 ? channel.fromPath(params.read1, checkIfExists: false) : channel.empty()
         read2_ch = params.read2 ? channel.fromPath(params.read2, checkIfExists: false) : channel.empty()
 
         // --- Assembly -> polish -> QC (vendored, untouched) ---
-        BACTERIAL_ASSEMBLY(long_reads_ch, read1_ch, read2_ch)
+        BACTERIAL_ASSEMBLY(long_reads_ch, read1_ch, read2_ch, pilon_iter)
 
         // --- Knowledge-graph export (NosoGraph-owned) ---
         // The vendored core does not surface Flye's assembly_info.txt through its emits,
         // so source it from its publishDir once the assembly has completed (Flye only;
-        // a NO_FILE sentinel otherwise). CheckM2 is optional (only runs when pilon_iter>0).
+        // a NO_FILE sentinel otherwise). The NO_CHECKM2 sentinel is a guard only: the
+        // vendored core now always runs CheckM2, on whichever assembly comes out last.
         // Distinct sentinels so the optional inputs never collide on a shared filename.
         no_flye_info  = file("${projectDir}/assets/NO_FLYE_INFO")
         no_checkm2    = file("${projectDir}/assets/NO_CHECKM2")
