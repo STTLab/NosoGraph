@@ -117,6 +117,7 @@ unchanged — it still consumes a standard 6-column Kraken2 report.
 
 Initial demo prerelease.
 
+[0.2.1-demo.1]: https://github.com/STTLab/NosoGraph/releases/tag/v0.2.1-demo.1
 [0.2.0-demo.1]: https://github.com/STTLab/NosoGraph/releases/tag/v0.2.0-demo.1
 [0.1.1-demo.1]: https://github.com/STTLab/NosoGraph/releases/tag/v0.1.1-demo.1
 [0.1.0-demo.1]: https://github.com/STTLab/NosoGraph/releases/tag/v0.1.0-demo.1
