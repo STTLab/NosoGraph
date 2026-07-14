@@ -7,6 +7,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/). Demo
 prereleases carry a `-demo.N` suffix.
 
+## [0.2.1-demo.1] - 2026-07-14
+
+Patch bump from `0.2.0-demo.1`: a refresh of the vendored modules, plus the
+call-site fix that the refresh turned out to require.
+
+> **Behaviour change on the default invocation.** A long-read-only run (no
+> `--read1`/`--read2`) previously failed with *"Pilon polishing (pilon_iter > 0)
+> requires --read1 and --read2"*, because `pilon_iter` defaults to `1`. It now
+> succeeds: the short-read polish is skipped and CheckM2 still runs, so these
+> runs gain a `checkm2` QC result — and a populated `Assembly` QC block in the
+> exported knowledge graph — where they previously produced nothing at all.
+
+### Fixed
+- **`main.nf` failed to compile against the refreshed `bacterial-assembly`.**
+  The module's `BACTERIAL_ASSEMBLY` workflow gained a fourth input,
+  `pilon_iter`, but `main.nf` still called it with three arguments. Because
+  `main.nf` is a single script, the compile error aborted **every** pipeline,
+  not just `bacterial-assembly` — `autocycler` and `metagenomics` were equally
+  unrunnable. ([#17](https://github.com/STTLab/NosoGraph/pull/17))
+
+### Changed
+- **Long-read-only assembly is now a first-class mode.** `main.nf` mirrors the
+  vendored `AUTO_BACTERIAL_ASSEMBLY` wrapper: with no short reads supplied it
+  drops the Pilon polish and logs the decision, rather than erroring out.
+- **CheckM2 always runs**, on whichever assembly comes out last, instead of only
+  when Pilon ran. The `NO_CHECKM2` sentinel is retained as a guard but is no
+  longer reached on the `bacterial-assembly` path.
+- **Vendored modules refreshed** — `autocycler` (`48ef4ee`),
+  `bacterial-assembly` (`0dc6c70`), `kraken2-classify` (`3d43a35`) and
+  `assembly-qc-iden` (`3703061`). The `assembly-qc-iden` BLAST step moved from a
+  `shell:` block to a `script:` block with escaped bash/awk fields; behaviour is
+  unchanged.
+
 ## [0.2.0-demo.1] - 2026-07-09
 
 Minor bump from `0.1.1-demo.1`. The headline change is a new default runtime:
