@@ -16,12 +16,14 @@ include { PILON_POLISH  } from './polish/pilon.nf'
 include { CHECKM2       } from './qc/checkm2.nf'
 
 // Composable core: single-assembler long-read assembly -> racon -> pilon -> CheckM2.
-// Steps after assembly are gated by params (racon_iter, pilon_iter).
+// Racon is gated by params.racon_iter, Pilon by the pilon_iter input. CheckM2 always
+// runs, on whichever assembly comes out last.
 workflow BACTERIAL_ASSEMBLY {
     take:
         long_reads_ch
         read1_ch
         read2_ch
+        pilon_iter      // effective iterations; 0 skips Pilon (read1_ch/read2_ch unused)
 
     main:
         // --- Assembly ---
@@ -35,20 +37,19 @@ workflow BACTERIAL_ASSEMBLY {
         }
 
         def racon_iter = params.racon_iter as int
-        def pilon_iter = params.pilon_iter as int
 
         // --- Racon polishing (all iterations in one process) ---
         def polished_ch = (racon_iter > 0)
             ? RACON_POLISH(assembly_ch, long_reads_ch)
             : assembly_ch
 
-        // --- Pilon polishing + CheckM2 (all iterations in one process) ---
-        def final_ch = polished_ch
-        def qc_ch     = channel.empty()
-        if (pilon_iter > 0) {
-            final_ch = PILON_POLISH(polished_ch, read1_ch, read2_ch)
-            qc_ch    = CHECKM2(final_ch)
-        }
+        // --- Pilon polishing (all iterations in one process) ---
+        def final_ch = (pilon_iter > 0)
+            ? PILON_POLISH(polished_ch, read1_ch, read2_ch)
+            : polished_ch
+
+        // --- QC: always runs, on whatever the final assembly is ---
+        def qc_ch = CHECKM2(final_ch)
 
     emit:
         assembly = final_ch
@@ -61,14 +62,20 @@ workflow AUTO_BACTERIAL_ASSEMBLY {
     if (!params.assembler)  error "Missing required param: --assembler (canu | flye)"
     if (!params.tech)       error "Missing required param: --tech (nanopore | nanopore-hq | pacbio)"
 
-    if ((params.pilon_iter as int) > 0 && (!params.read1 || !params.read2))
-        error "Pilon polishing (pilon_iter > 0) requires --read1 and --read2"
+    // Long-read-only runs are a first-class mode: rather than making the user pass
+    // --pilon_iter 0, drop the short-read polish when there are no short reads to
+    // polish with. params is read-only at runtime, so resolve the value here.
+    def pilon_iter = params.pilon_iter as int
+    if (pilon_iter > 0 && (!params.read1 || !params.read2)) {
+        log.info "No --read1/--read2 supplied: skipping Pilon short-read polishing (QC still runs)."
+        pilon_iter = 0
+    }
 
     long_reads_ch = channel.fromPath(params.long_reads, checkIfExists: false)
     read1_ch = params.read1 ? channel.fromPath(params.read1, checkIfExists: false) : channel.empty()
     read2_ch = params.read2 ? channel.fromPath(params.read2, checkIfExists: false) : channel.empty()
 
-    BACTERIAL_ASSEMBLY(long_reads_ch, read1_ch, read2_ch)
+    BACTERIAL_ASSEMBLY(long_reads_ch, read1_ch, read2_ch, pilon_iter)
 }
 
 // Default entry so the module runs standalone:
