@@ -184,7 +184,7 @@ CALL (rec, hgvs_c, hgvs_p) {
   MERGE (rg)-[:HAS_FEATURE]->(f)
   MERGE (v)-[:AFFECTS]->(f)
 } IN TRANSACTIONS OF 500 ROWS;",21,2,false
-17 Taxonomic Classification (pipeline),"Replace <sample_id>. Sample -[:CLASSIFIED_IN]-> (:ProcessRun:TaxonomicClassification). Identified taxa ride along as the tc.taxa_json QC blob (untrusted per-run classification, not modelled as Organism nodes). PUBLIC EXTENSION: the :TaxonomicClassification ProcessRun subtype is a NosoGraph metagenomics extension (not in the core nosograph lib schema).","LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/taxonomic_classification.csv' AS rec
+17 Taxonomic Classification (pipeline),"Replace <sample_id>. Sample -[:CLASSIFIED_IN]-> (:ProcessRun:TaxonomicClassification). Identified taxa ride along as the tc.taxa_json QC blob (untrusted per-run classification, not modelled as Organism nodes). PUBLIC EXTENSION: the :TaxonomicClassification ProcessRun subtype is a NosoGraph kraken2-classify extension (not in the core nosograph lib schema).","LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/taxonomic_classification.csv' AS rec
 CALL (rec) {
   MERGE (s:Sample {sample_id: rec.sample_id})
   MERGE (tc:ProcessRun:TaxonomicClassification {process_run_id: rec.process_run_id})
@@ -196,7 +196,7 @@ CALL (rec) {
       tc.taxa_json = rec.taxa_json
   MERGE (s)-[:CLASSIFIED_IN]->(tc)
 } IN TRANSACTIONS OF 500 ROWS;",29,2,false
-18 BioDataFile FASTQ (metagenomics),Replace <sample_id>. TaxonomicClassification -[:CLASSIFIED_FROM]-> BioDataFile{FASTQ}. PUBLIC EXTENSION (NosoGraph metagenomics; rows are header-only when the run was launched without input reads).,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/meta_reads.csv' AS rec
+18 BioDataFile FASTQ (kraken2-classify),Replace <sample_id>. TaxonomicClassification -[:CLASSIFIED_FROM]-> BioDataFile{FASTQ}. PUBLIC EXTENSION (NosoGraph kraken2-classify; rows are header-only when the run was launched without input reads).,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/meta_reads.csv' AS rec
 WITH rec WHERE rec.file_type = 'FASTQ' AND rec.uri IS NOT NULL AND rec.uri <> ''
 CALL (rec) {
   MERGE (f:BioDataFile {uri: rec.uri})
