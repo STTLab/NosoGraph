@@ -329,3 +329,11 @@ This work was supported by the following funding bodies:
 ## Citation
 
 Wattanasombat S, Tongjai S. NosoGraph: assembly pipeline and Neo4j knowledge graph for integrating clinical, microbial, and genomic data [computer software]. GitHub; 2026. Available from: https://github.com/STTLab/NosoGraph
+
+
+## STTLab Members
+
+- Sara Wattanasobat
+- Siripong Tongjai (PI)
+
+Department of Microbiology, Faculty of Medicine, Chiang Mai University, Chiang Mai, 50200 Thailand
