@@ -9,12 +9,12 @@ include { KG_EXPORT }          from './modules/local/kg_export.nf'
 include { META_KG_EXPORT }     from './modules/local/meta_kg_export.nf'
 
 // One sample per invocation (STTLab monolithic model). Select the pipeline with
-// --pipeline; the bacterial-assembly and metagenomics paths additionally export a
+// --pipeline; the bacterial-assembly and kraken2-classify paths additionally export a
 // per-sample knowledge graph to <outdir>/<sample_id>/kg/.
 //   nextflow run main.nf --pipeline bacterial-assembly --sample_id S01 \
 //       --long_reads reads.fastq.gz --assembler flye --tech nanopore ...
 //   nextflow run main.nf --pipeline autocycler --long_reads <reads>
-//   nextflow run main.nf --pipeline metagenomics --sample_id S01 \
+//   nextflow run main.nf --pipeline kraken2-classify --sample_id S01 \
 //       --long_reads reads.fastq.gz --kraken2_db <kraken2 DB dir>
 workflow {
     if (params.pipeline == 'autocycler') {
@@ -81,7 +81,7 @@ workflow {
 
         KG_EXPORT(assembly_v, flye_info_v, checkm2_v, blast_iden_v)
 
-    } else if (params.pipeline == 'metagenomics') {
+    } else if (params.pipeline == 'kraken2-classify') {
         // Single-step model: the vendored kraken2-classify module classifies the reads
         // against a pre-built Kraken2 DB, then this exports a high-level pathogen-ID
         // knowledge graph (NosoGraph-owned) from the Kraken2 report. Bracken refinement is
@@ -94,6 +94,6 @@ workflow {
         META_KG_EXPORT(KRAKEN2_CLASSIFY.out.report)
 
     } else {
-        error "Unknown --pipeline '${params.pipeline}'. Use: bacterial-assembly, autocycler, metagenomics"
+        error "Unknown --pipeline '${params.pipeline}'. Use: bacterial-assembly, autocycler, kraken2-classify"
     }
 }

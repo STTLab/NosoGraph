@@ -67,10 +67,10 @@ Container images live at `<container_registry>/bioinf-<tool>:<container_tag>` (d
 
 | Parameter | Description | Default |
 |---|---|---|
-| `--pipeline` | Pipeline to run: `bacterial-assembly`, `autocycler`, or `metagenomics` | `bacterial-assembly` |
+| `--pipeline` | Pipeline to run: `bacterial-assembly`, `autocycler`, or `kraken2-classify` | `bacterial-assembly` |
 | `--sample_id` | Sample identifier; scopes outputs to `<outdir>/<sample_id>/` and namespaces contig IDs | required |
 | `--long_reads` | Long-read FASTQ (gzipped or uncompressed) | required |
-| `--kraken2_db` | Kraken2 DB directory with `hash.k2d`/`opts.k2d`/`taxo.k2d` (required for `--pipeline metagenomics`) | — |
+| `--kraken2_db` | Kraken2 DB directory with `hash.k2d`/`opts.k2d`/`taxo.k2d` (required for `--pipeline kraken2-classify`) | — |
 | `--kraken2_mem` | Memory request for Kraken2 (≈ DB size; raise for the full Standard DB) | `64 GB` |
 | `--kraken2_z_min` | `taxa_json` z-score cutoff; taxa below fold into an `"Other"` bucket | `-1.0` |
 | `--kraken2_min_taxa` | Keep all taxa (no bucketing) when fewer than this many | `3` |
@@ -128,14 +128,14 @@ nextflow run main.nf \
 
 #### Metagenomics (pathogen identification)
 
-The `metagenomics` pipeline classifies long reads against a pre-built Kraken2 database and
+The `kraken2-classify` pipeline classifies long reads against a pre-built Kraken2 database and
 turns the result into a high-level, pathogen-ID knowledge graph — in a **single** Nextflow
 run. The vendored [`kraken2-classify`](modules/vendor/kraken2-classify/) module produces the
 Kraken2 report, which is exported to the `kg/` CSVs.
 
 ```bash
 nextflow run main.nf \
-    --pipeline metagenomics \
+    --pipeline kraken2-classify \
     --sample_id sample_meta \
     --long_reads reads.fastq.gz \
     --kraken2_db /path/to/k2_standard \
@@ -323,3 +323,17 @@ This work was supported by the following funding bodies:
 - The Fundamental Fund 2025, Chiang Mai University, Chaing Mai, Thailand (Grant number: 214458).
 - The Faculty of Medicine Research Fund, Chiang Mai University (Grant No. 099-2563)
 - Support the Children Foundation, Chiang Mai, Thailand.
+
+---
+
+## Citation
+
+Wattanasombat S, Tongjai S. NosoGraph: assembly pipeline and Neo4j knowledge graph for integrating clinical, microbial, and genomic data [computer software]. GitHub; 2026. Available from: https://github.com/STTLab/NosoGraph
+
+
+## STTLab Members
+
+- Sara Wattanasobat
+- Siripong Tongjai (PI)
+
+Department of Microbiology, Faculty of Medicine, Chiang Mai University, Chiang Mai, 50200 Thailand

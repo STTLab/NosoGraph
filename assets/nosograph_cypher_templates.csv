@@ -24,16 +24,14 @@ CREATE CONSTRAINT variant_key     IF NOT EXISTS FOR (n:Variant) REQUIRE (n.REF_A
 CREATE CONSTRAINT tcr_id          IF NOT EXISTS FOR (n:TaxonomicClassification) REQUIRE n.process_run_id IS UNIQUE;
 CREATE CONSTRAINT antibiotic_class IF NOT EXISTS FOR (n:AntibioticClass) REQUIRE n.name IS UNIQUE;
 CREATE CONSTRAINT snomed_sctid     IF NOT EXISTS FOR (n:SNOMED)          REQUIRE n.sctid IS NODE KEY;",5,1,false
-01 Departments,Hand-authored clinical CSV in the Neo4j import directory root.,":auto LOAD CSV WITH HEADERS FROM 'file:///Departments.csv' AS rec
-CALL {
-  WITH rec
+01 Departments,Hand-authored clinical CSV in the Neo4j import directory root.,"LOAD CSV WITH HEADERS FROM 'file:///Departments.csv' AS rec
+CALL (rec) {
   MERGE (d:Department {department_id: rec.department_id})
     ON CREATE SET d.created_at = datetime()
   SET d.name = rec.name, d.description = rec.description
 } IN TRANSACTIONS OF 500 ROWS;",6,2,false
-02 Wards,Ward -[:IN_DEPARTMENT]-> Department.,":auto LOAD CSV WITH HEADERS FROM 'file:///Wards.csv' AS rec
-CALL {
-  WITH rec
+02 Wards,Ward -[:IN_DEPARTMENT]-> Department.,"LOAD CSV WITH HEADERS FROM 'file:///Wards.csv' AS rec
+CALL (rec) {
   MERGE (w:Ward {ward_id: rec.ward_id})
     ON CREATE SET w.created_at = datetime()
   SET w.name = rec.name, w.ward_type = rec.ward_type,
@@ -42,18 +40,16 @@ CALL {
   MATCH (d:Department {department_id: rec.department_id})
   MERGE (w)-[:IN_DEPARTMENT]->(d)
 } IN TRANSACTIONS OF 500 ROWS;",7,2,false
-03 Patients,Patient nodes.,":auto LOAD CSV WITH HEADERS FROM 'file:///Patients.csv' AS rec
-CALL {
-  WITH rec
+03 Patients,Patient nodes.,"LOAD CSV WITH HEADERS FROM 'file:///Patients.csv' AS rec
+CALL (rec) {
   MERGE (p:Patient {patient_id: rec.patient_id})
     ON CREATE SET p.created_at = datetime()
   SET p.firstname = rec.firstname, p.lastname = rec.lastname, p.sex = rec.sex,
       p.date_of_birth = CASE WHEN rec.date_of_birth IS NOT NULL AND rec.date_of_birth <> ''
                              THEN date(rec.date_of_birth) ELSE NULL END
 } IN TRANSACTIONS OF 500 ROWS;",8,2,false
-04 Admissions,"Patient -[:HAS_ADMISSION]-> Admission -[:ADMITTED_TO {room_no,bed_no}]-> Ward.",":auto LOAD CSV WITH HEADERS FROM 'file:///Admissions.csv' AS rec
-CALL {
-  WITH rec
+04 Admissions,"Patient -[:HAS_ADMISSION]-> Admission -[:ADMITTED_TO {room_no,bed_no}]-> Ward.","LOAD CSV WITH HEADERS FROM 'file:///Admissions.csv' AS rec
+CALL (rec) {
   MERGE (a:Admission {admission_id: rec.admission_id})
   SET a.date_of_admission = CASE WHEN rec.date_of_admission IS NOT NULL AND rec.date_of_admission <> ''
                                  THEN datetime(rec.date_of_admission) ELSE NULL END,
@@ -69,16 +65,14 @@ CALL {
   MERGE (a)-[adm:ADMITTED_TO]->(w)
   SET adm.room_no = rec.room_no, adm.bed_no = rec.bed_no
 } IN TRANSACTIONS OF 500 ROWS;",9,2,false
-05 Antibiotics,Antibiotic reference vocabulary. PUBLIC EXTENSION: :Antibiotic is not in the core nosograph lib schema (AMR support is a planned amr_genotype handler).,":auto LOAD CSV WITH HEADERS FROM 'file:///Antibiotic.csv' AS rec
-CALL {
-  WITH rec
+05 Antibiotics,Antibiotic reference vocabulary. PUBLIC EXTENSION: :Antibiotic is not in the core nosograph lib schema (AMR support is a planned amr_genotype handler).,"LOAD CSV WITH HEADERS FROM 'file:///Antibiotic.csv' AS rec
+CALL (rec) {
   MERGE (ab:Antibiotic {antibiotic_id: rec.antibiotic_id})
   SET ab.name = rec.name, ab.abbreviation = rec.abbreviation,
       ab.class = rec.class, ab.description = rec.description
 } IN TRANSACTIONS OF 500 ROWS;",10,2,false
-06 Specimens,Specimen -[:COLLECTED_FROM]-> Patient.,":auto LOAD CSV WITH HEADERS FROM 'file:///Specimens.csv' AS rec
-CALL {
-  WITH rec
+06 Specimens,Specimen -[:COLLECTED_FROM]-> Patient.,"LOAD CSV WITH HEADERS FROM 'file:///Specimens.csv' AS rec
+CALL (rec) {
   MERGE (s:Specimen {specimen_id: rec.specimen_id})
     ON CREATE SET s.created_at = datetime()
   SET s.specimen_type = rec.specimen_type, s.specimen_class = rec.specimen_class, s.category = rec.category
@@ -86,24 +80,21 @@ CALL {
   MATCH (p:Patient {patient_id: rec.patient_id})
   MERGE (s)-[:COLLECTED_FROM]->(p)
 } IN TRANSACTIONS OF 500 ROWS;",11,2,false
-07 Organisms,Organism reference nodes (taxid identity).,":auto LOAD CSV WITH HEADERS FROM 'file:///Organisms.csv' AS rec
-CALL {
-  WITH rec
+07 Organisms,Organism reference nodes (taxid identity).,"LOAD CSV WITH HEADERS FROM 'file:///Organisms.csv' AS rec
+CALL (rec) {
   MERGE (o:Organism {taxid: rec.taxid})
   SET o.sciname = rec.sciname, o.strain = rec.strain
 } IN TRANSACTIONS OF 500 ROWS;",12,2,false
-08 Reference Genomes,ReferenceGenome -[:REFERENCE_GENOME_OF]-> Organism.,":auto LOAD CSV WITH HEADERS FROM 'file:///ReferenceGenomes.csv' AS rec
-CALL {
-  WITH rec
+08 Reference Genomes,ReferenceGenome -[:REFERENCE_GENOME_OF]-> Organism.,"LOAD CSV WITH HEADERS FROM 'file:///ReferenceGenomes.csv' AS rec
+CALL (rec) {
   MERGE (rg:ReferenceGenome {accession_no: rec.accession_no})
   SET rg.name = rec.name, rg.molecular_type = rec.molecular_type, rg.strain = rec.strain
   WITH rg, rec WHERE rec.taxid IS NOT NULL AND rec.taxid <> ''
   MATCH (o:Organism {taxid: rec.taxid})
   MERGE (rg)-[:REFERENCE_GENOME_OF]->(o)
 } IN TRANSACTIONS OF 500 ROWS;",13,2,false
-09 Antibiotic Susceptibility (MIC/AST),Specimen -[:TESTED_FOR]-> (:LabResult:BacterialCulture) -[:AGAINST]-> Antibiotic. PUBLIC EXTENSION: the AGAINST->Antibiotic edge and AST properties are NosoGraph extensions of the lib LabResult subtype.,":auto LOAD CSV WITH HEADERS FROM 'file:///LabResults.csv' AS rec
-CALL {
-  WITH rec
+09 Antibiotic Susceptibility (MIC/AST),Specimen -[:TESTED_FOR]-> (:LabResult:BacterialCulture) -[:AGAINST]-> Antibiotic. PUBLIC EXTENSION: the AGAINST->Antibiotic edge and AST properties are NosoGraph extensions of the lib LabResult subtype.,"LOAD CSV WITH HEADERS FROM 'file:///LabResults.csv' AS rec
+CALL (rec) {
   MERGE (lr:LabResult:BacterialCulture {lab_id: rec.lab_id})
     ON CREATE SET lr.created_at = datetime()
   SET lr.specimen_id = rec.specimen_id, lr.result_type = rec.result_type,
@@ -119,19 +110,17 @@ CALL {
   MATCH (ab:Antibiotic {antibiotic_id: rec.antibiotic_id})
   MERGE (lr)-[:AGAINST]->(ab)
 } IN TRANSACTIONS OF 500 ROWS;",14,2,false
-10 Sample (pipeline),Replace <sample_id>. Pipeline-produced CSV at <import>/<sample_id>/kg/.,":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/sample.csv' AS rec
-CALL { WITH rec MERGE (s:Sample {sample_id: rec.sample_id}) } IN TRANSACTIONS OF 500 ROWS;",15,2,false
-11 Sample -> Specimen link,"Sample -[:DERIVED_FROM]-> Specimen (clinical<->genomic bridge, hand-authored).",":auto LOAD CSV WITH HEADERS FROM 'file:///Samples.csv' AS rec
-CALL {
-  WITH rec
+10 Sample (pipeline),Replace <sample_id>. Pipeline-produced CSV at <import>/<sample_id>/kg/.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/sample.csv' AS rec
+CALL (rec) { MERGE (s:Sample {sample_id: rec.sample_id}) } IN TRANSACTIONS OF 500 ROWS;",15,2,false
+11 Sample -> Specimen link,"Sample -[:DERIVED_FROM]-> Specimen (clinical<->genomic bridge, hand-authored).","LOAD CSV WITH HEADERS FROM 'file:///Samples.csv' AS rec
+CALL (rec) {
   MERGE (s:Sample {sample_id: rec.sample_id})
   WITH s, rec WHERE rec.specimen_id IS NOT NULL AND rec.specimen_id <> ''
   MATCH (sp:Specimen {specimen_id: rec.specimen_id})
   MERGE (s)-[:DERIVED_FROM]->(sp)
 } IN TRANSACTIONS OF 500 ROWS;",16,2,false
-12 Assembly (pipeline),Replace <sample_id>. Sample -[:HAS_ASSEMBLY]-> Assembly (+ CheckM2 quality).,":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/assembly.csv' AS rec
-CALL {
-  WITH rec
+12 Assembly (pipeline),Replace <sample_id>. Sample -[:HAS_ASSEMBLY]-> Assembly (+ CheckM2 quality).,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/assembly.csv' AS rec
+CALL (rec) {
   MERGE (a:Assembly {assembly_id: rec.assembly_id})
   SET a.assembler = rec.assembler,
       a.created_at = CASE WHEN rec.created_at IS NOT NULL AND rec.created_at <> '' THEN date(rec.created_at) ELSE NULL END,
@@ -141,29 +130,26 @@ CALL {
   MATCH (s:Sample {sample_id: rec.sample_id})
   MERGE (s)-[:HAS_ASSEMBLY]->(a)
 } IN TRANSACTIONS OF 500 ROWS;",17,2,false
-13 BioDataFile FASTA (pipeline),Replace <sample_id>. Assembly -[:PRODUCE]-> BioDataFile{FASTA}.,":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/biodata_files.csv' AS rec
+13 BioDataFile FASTA (pipeline),Replace <sample_id>. Assembly -[:PRODUCE]-> BioDataFile{FASTA}.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/biodata_files.csv' AS rec
 WITH rec WHERE rec.file_type = 'FASTA' AND rec.assembly_id IS NOT NULL AND rec.assembly_id <> ''
-CALL {
-  WITH rec
+CALL (rec) {
   MERGE (f:BioDataFile {uri: rec.uri})
   SET f.file_type = rec.file_type, f.compressed = rec.compressed, f.sha256 = rec.sha256
   WITH f, rec
   MATCH (a:Assembly {assembly_id: rec.assembly_id})
   MERGE (a)-[:PRODUCE]->(f)
 } IN TRANSACTIONS OF 500 ROWS;",18,2,false
-14 BioDataFile FASTQ (pipeline),Replace <sample_id>. Assembly -[:ASSEMBLED_FROM]-> BioDataFile{FASTQ}.,":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/biodata_files.csv' AS rec
+14 BioDataFile FASTQ (pipeline),Replace <sample_id>. Assembly -[:ASSEMBLED_FROM]-> BioDataFile{FASTQ}.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/biodata_files.csv' AS rec
 WITH rec WHERE rec.file_type = 'FASTQ'
-CALL {
-  WITH rec
+CALL (rec) {
   MERGE (f:BioDataFile {uri: rec.uri})
   SET f.file_type = rec.file_type, f.compressed = rec.compressed
   WITH f, rec
   MATCH (s:Sample {sample_id: rec.sample_id})-[:HAS_ASSEMBLY]->(a:Assembly)
   MERGE (a)-[:ASSEMBLED_FROM]->(f)
 } IN TRANSACTIONS OF 500 ROWS;",19,2,false
-15 Contigs (pipeline),Replace <sample_id>. BioDataFile{FASTA} -[:HAS_CONTIG]-> Contig.,":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/contigs.csv' AS rec
-CALL {
-  WITH rec
+15 Contigs (pipeline),Replace <sample_id>. BioDataFile{FASTA} -[:HAS_CONTIG]-> Contig.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/contigs.csv' AS rec
+CALL (rec) {
   MERGE (c:Contig {contig_id: rec.contig_id})
   SET c.name = rec.name, c.accession = rec.accession,
       c.length   = CASE WHEN rec.length   <> '' THEN toInteger(rec.length)   ELSE NULL END,
@@ -177,10 +163,9 @@ CALL {
   MATCH (a:Assembly {assembly_id: rec.assembly_id})-[:PRODUCE]->(f:BioDataFile)
   MERGE (f)-[:HAS_CONTIG]->(c)
 } IN TRANSACTIONS OF 500 ROWS;",20,2,false
-16 Variants & Features (Snippy),Hand-authored SNPs.csv. VariantCallingRun -[:CALLED]-> Variant -[:AGAINST]-> ReferenceGenome; Variant -[:AFFECTS]-> Feature <-[:HAS_FEATURE]- ReferenceGenome. (Variant calling is not yet a pipeline process; this loads example reference-anchored variants.),":auto LOAD CSV WITH HEADERS FROM 'file:///SNPs.csv' AS rec
+16 Variants & Features (Snippy),Hand-authored SNPs.csv. VariantCallingRun -[:CALLED]-> Variant -[:AGAINST]-> ReferenceGenome; Variant -[:AFFECTS]-> Feature <-[:HAS_FEATURE]- ReferenceGenome. (Variant calling is not yet a pipeline process; this loads example reference-anchored variants.),"LOAD CSV WITH HEADERS FROM 'file:///SNPs.csv' AS rec
 WITH rec, coalesce(rec.HGVS_C, '') AS hgvs_c, coalesce(rec.HGVS_P, '') AS hgvs_p
-CALL {
-  WITH rec, hgvs_c, hgvs_p
+CALL (rec, hgvs_c, hgvs_p) {
   MERGE (v:Variant {REF_ACC: rec.REF_ACC, POS: toInteger(rec.POS), REF: rec.REF, ALT: rec.ALT,
                     hgvs_c: hgvs_c, hgvs_p: hgvs_p})
   SET v.CHROM = rec.CHROM, v.TYPE = rec.TYPE, v.EFFECT = rec.EFFECT,
@@ -199,9 +184,8 @@ CALL {
   MERGE (rg)-[:HAS_FEATURE]->(f)
   MERGE (v)-[:AFFECTS]->(f)
 } IN TRANSACTIONS OF 500 ROWS;",21,2,false
-17 Taxonomic Classification (pipeline),"Replace <sample_id>. Sample -[:CLASSIFIED_IN]-> (:ProcessRun:TaxonomicClassification). Identified taxa ride along as the tc.taxa_json QC blob (untrusted per-run classification, not modelled as Organism nodes). PUBLIC EXTENSION: the :TaxonomicClassification ProcessRun subtype is a NosoGraph metagenomics extension (not in the core nosograph lib schema).",":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/taxonomic_classification.csv' AS rec
-CALL {
-  WITH rec
+17 Taxonomic Classification (pipeline),"Replace <sample_id>. Sample -[:CLASSIFIED_IN]-> (:ProcessRun:TaxonomicClassification). Identified taxa ride along as the tc.taxa_json QC blob (untrusted per-run classification, not modelled as Organism nodes). PUBLIC EXTENSION: the :TaxonomicClassification ProcessRun subtype is a NosoGraph kraken2-classify extension (not in the core nosograph lib schema).","LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/taxonomic_classification.csv' AS rec
+CALL (rec) {
   MERGE (s:Sample {sample_id: rec.sample_id})
   MERGE (tc:ProcessRun:TaxonomicClassification {process_run_id: rec.process_run_id})
     ON CREATE SET tc.process = 'taxonomic_classification',
@@ -212,10 +196,9 @@ CALL {
       tc.taxa_json = rec.taxa_json
   MERGE (s)-[:CLASSIFIED_IN]->(tc)
 } IN TRANSACTIONS OF 500 ROWS;",29,2,false
-18 BioDataFile FASTQ (metagenomics),Replace <sample_id>. TaxonomicClassification -[:CLASSIFIED_FROM]-> BioDataFile{FASTQ}. PUBLIC EXTENSION (NosoGraph metagenomics; rows are header-only when the run was launched without input reads).,":auto LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/meta_reads.csv' AS rec
+18 BioDataFile FASTQ (kraken2-classify),Replace <sample_id>. TaxonomicClassification -[:CLASSIFIED_FROM]-> BioDataFile{FASTQ}. PUBLIC EXTENSION (NosoGraph kraken2-classify; rows are header-only when the run was launched without input reads).,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/meta_reads.csv' AS rec
 WITH rec WHERE rec.file_type = 'FASTQ' AND rec.uri IS NOT NULL AND rec.uri <> ''
-CALL {
-  WITH rec
+CALL (rec) {
   MERGE (f:BioDataFile {uri: rec.uri})
   SET f.file_type = rec.file_type, f.compressed = rec.compressed, f.sha256 = rec.sha256
   WITH f, rec
@@ -248,24 +231,24 @@ RETURN s.sample_id AS sample, taxon.sciname AS organism, taxon.taxid AS taxid,
        taxon.rank AS rank, taxon.read_count AS reads, taxon.abundance AS abundance
 ORDER BY sample, abundance DESC;",32,3,false
 Schema visualization,Render the live node/relationship schema.,CALL db.schema.visualization();,27,4,false
-Delete all data,WARNING: removes every node and relationship in the current database.,MATCH (n) CALL { WITH n DETACH DELETE n } IN TRANSACTIONS OF 1000 ROWS;,28,4,false
-18 Antibiotic classes,AntibioticClass nodes; Antibiotic-[:BELONGS_TO]->AntibioticClass.,":auto LOAD CSV WITH HEADERS FROM 'file:///AntibioticClasses.csv' AS rec
-CALL { WITH rec
+Delete all data,WARNING: removes every node and relationship in the current database.,MATCH (n) CALL (n) { DETACH DELETE n } IN TRANSACTIONS OF 1000 ROWS;,28,4,false
+18 Antibiotic classes,AntibioticClass nodes; Antibiotic-[:BELONGS_TO]->AntibioticClass.,"LOAD CSV WITH HEADERS FROM 'file:///AntibioticClasses.csv' AS rec
+CALL (rec) {
   MERGE (c:AntibioticClass {name: rec.class_name})
   WITH c, rec
   MATCH (ab:Antibiotic {antibiotic_id: rec.antibiotic_id})
   MERGE (ab)-[:BELONGS_TO]->(c)
 } IN TRANSACTIONS OF 500 ROWS;",33,2,false
-19 CBC (haematology),Complete blood count as :LabResult:CBC; Admission-[:HAS_CBC]->CBC. Analyte columns become node properties.,":auto LOAD CSV WITH HEADERS FROM 'file:///CBC.csv' AS rec
-CALL { WITH rec
+19 CBC (haematology),Complete blood count as :LabResult:CBC; Admission-[:HAS_CBC]->CBC. Analyte columns become node properties.,"LOAD CSV WITH HEADERS FROM 'file:///CBC.csv' AS rec
+CALL (rec) {
   MERGE (c:LabResult:CBC {cbc_id: rec.cbc_id})
   SET c.result_type = 'CBC', c += apoc.map.clean(rec, ['cbc_id','admission_id','patient_id'], ['',null])
   WITH c, rec
   MATCH (a:Admission {admission_id: rec.admission_id})
   MERGE (a)-[:HAS_CBC]->(c)
 } IN TRANSACTIONS OF 500 ROWS;",34,2,false
-20 Terminology concepts (SNOMED CT),SNOMED concept nodes; each gets :SNOMED plus a semantic sub-label (Disorder/Finding/Situation/Device/Morphology).,":auto LOAD CSV WITH HEADERS FROM 'file:///Terminology.csv' AS rec
-CALL { WITH rec
+20 Terminology concepts (SNOMED CT),SNOMED concept nodes; each gets :SNOMED plus a semantic sub-label (Disorder/Finding/Situation/Device/Morphology).,"LOAD CSV WITH HEADERS FROM 'file:///Terminology.csv' AS rec
+CALL (rec) {
   MERGE (c:SNOMED {sctid: rec.sctid})
   SET c.preferred_term = rec.preferred_term,
       c.fully_specified_name = rec.fully_specified_name,
@@ -276,16 +259,16 @@ CALL { WITH rec
   FOREACH (_ IN CASE WHEN rec.concept_label = 'Device'     THEN [1] ELSE [] END | SET c:Device)
   FOREACH (_ IN CASE WHEN rec.concept_label = 'Morphology' THEN [1] ELSE [] END | SET c:Morphology)
 } IN TRANSACTIONS OF 500 ROWS;",35,2,false
-21 Patient conditions,"Patient-level SNOMED links: HAS_DISORDER (comorbidities), HAS_CLINICAL_FINDING (findings incl. outcome), HAS_CLINICAL_HISTORY.",":auto LOAD CSV WITH HEADERS FROM 'file:///PatientConditions.csv' AS rec
-CALL { WITH rec
+21 Patient conditions,"Patient-level SNOMED links: HAS_DISORDER (comorbidities), HAS_CLINICAL_FINDING (findings incl. outcome), HAS_CLINICAL_HISTORY.","LOAD CSV WITH HEADERS FROM 'file:///PatientConditions.csv' AS rec
+CALL (rec) {
   MATCH (p:Patient {patient_id: rec.patient_id})
   MATCH (c:SNOMED {sctid: rec.sctid})
   FOREACH (_ IN CASE WHEN rec.relationship = 'HAS_DISORDER'         THEN [1] ELSE [] END | MERGE (p)-[:HAS_DISORDER]->(c))
   FOREACH (_ IN CASE WHEN rec.relationship = 'HAS_CLINICAL_FINDING' THEN [1] ELSE [] END | MERGE (p)-[:HAS_CLINICAL_FINDING]->(c))
   FOREACH (_ IN CASE WHEN rec.relationship = 'HAS_CLINICAL_HISTORY' THEN [1] ELSE [] END | MERGE (p)-[:HAS_CLINICAL_HISTORY]->(c))
 } IN TRANSACTIONS OF 500 ROWS;",36,2,false
-22 Admission conditions,Admission-level SNOMED links: HAS_PRINCIPAL_DIAGNOSIS and USE_DEVICE.,":auto LOAD CSV WITH HEADERS FROM 'file:///AdmissionConditions.csv' AS rec
-CALL { WITH rec
+22 Admission conditions,Admission-level SNOMED links: HAS_PRINCIPAL_DIAGNOSIS and USE_DEVICE.,"LOAD CSV WITH HEADERS FROM 'file:///AdmissionConditions.csv' AS rec
+CALL (rec) {
   MATCH (a:Admission {admission_id: rec.admission_id})
   MATCH (c:SNOMED {sctid: rec.sctid})
   FOREACH (_ IN CASE WHEN rec.relationship = 'HAS_PRINCIPAL_DIAGNOSIS' THEN [1] ELSE [] END | MERGE (a)-[:HAS_PRINCIPAL_DIAGNOSIS]->(c))
