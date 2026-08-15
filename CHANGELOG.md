@@ -4,8 +4,61 @@
 All notable changes to NosoGraph are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/). Demo
-prereleases carry a `-demo.N` suffix.
+and this project adheres to [Semantic Versioning](https://semver.org/). Prereleases
+carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
+
+## [0.3.0-rc.1] - 2026-08-15
+
+Minor bump from `0.2.1-demo.1`, first release candidate of the 0.3 line. The
+`--pipeline` selector `metagenomics` is **renamed** to `kraken2-classify`,
+aligning the user-facing choice with the vendored module (`KRAKEN2_CLASSIFY`,
+`modules/vendor/kraken2-classify/`) that has always backed it.
+
+> **Breaking CLI change.** `--pipeline metagenomics` no longer runs — it now
+> errors with *"Unknown --pipeline 'metagenomics'. Use: bacterial-assembly,
+> autocycler, kraken2-classify"*. Update any scripts, scheduler jobs, or
+> saved commands to `--pipeline kraken2-classify`. No alias is kept.
+
+### Changed
+- **`--pipeline metagenomics` renamed to `--pipeline kraken2-classify`** across
+  the workflow (`main.nf`, `nextflow.config`) and documentation (`README.md`,
+  wiki Pipeline/Knowledge-graph tutorials). The pipeline's behaviour, outputs,
+  and KG schema are unchanged; only the selector token changed. Domain terms —
+  the KG "metagenomics public extension", the `TaxonomicClassification` node
+  label, and the historical `wf-metagenomics` references — are left as-is.
+
+## [0.2.1-demo.1] - 2026-07-14
+
+Patch bump from `0.2.0-demo.1`: a refresh of the vendored modules, plus the
+call-site fix that the refresh turned out to require.
+
+> **Behaviour change on the default invocation.** A long-read-only run (no
+> `--read1`/`--read2`) previously failed with *"Pilon polishing (pilon_iter > 0)
+> requires --read1 and --read2"*, because `pilon_iter` defaults to `1`. It now
+> succeeds: the short-read polish is skipped and CheckM2 still runs, so these
+> runs gain a `checkm2` QC result — and a populated `Assembly` QC block in the
+> exported knowledge graph — where they previously produced nothing at all.
+
+### Fixed
+- **`main.nf` failed to compile against the refreshed `bacterial-assembly`.**
+  The module's `BACTERIAL_ASSEMBLY` workflow gained a fourth input,
+  `pilon_iter`, but `main.nf` still called it with three arguments. Because
+  `main.nf` is a single script, the compile error aborted **every** pipeline,
+  not just `bacterial-assembly` — `autocycler` and `metagenomics` were equally
+  unrunnable. ([#17](https://github.com/STTLab/NosoGraph/pull/17))
+
+### Changed
+- **Long-read-only assembly is now a first-class mode.** `main.nf` mirrors the
+  vendored `AUTO_BACTERIAL_ASSEMBLY` wrapper: with no short reads supplied it
+  drops the Pilon polish and logs the decision, rather than erroring out.
+- **CheckM2 always runs**, on whichever assembly comes out last, instead of only
+  when Pilon ran. The `NO_CHECKM2` sentinel is retained as a guard but is no
+  longer reached on the `bacterial-assembly` path.
+- **Vendored modules refreshed** — `autocycler` (`48ef4ee`),
+  `bacterial-assembly` (`0dc6c70`), `kraken2-classify` (`3d43a35`) and
+  `assembly-qc-iden` (`3703061`). The `assembly-qc-iden` BLAST step moved from a
+  `shell:` block to a `script:` block with escaped bash/awk fields; behaviour is
+  unchanged.
 
 ## [0.2.0-demo.1] - 2026-07-09
 
@@ -84,6 +137,8 @@ unchanged — it still consumes a standard 6-column Kraken2 report.
 
 Initial demo prerelease.
 
+[0.3.0-rc.1]: https://github.com/STTLab/NosoGraph/releases/tag/v0.3.0-rc.1
+[0.2.1-demo.1]: https://github.com/STTLab/NosoGraph/releases/tag/v0.2.1-demo.1
 [0.2.0-demo.1]: https://github.com/STTLab/NosoGraph/releases/tag/v0.2.0-demo.1
 [0.1.1-demo.1]: https://github.com/STTLab/NosoGraph/releases/tag/v0.1.1-demo.1
 [0.1.0-demo.1]: https://github.com/STTLab/NosoGraph/releases/tag/v0.1.0-demo.1
