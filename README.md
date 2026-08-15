@@ -323,3 +323,9 @@ This work was supported by the following funding bodies:
 - The Fundamental Fund 2025, Chiang Mai University, Chaing Mai, Thailand (Grant number: 214458).
 - The Faculty of Medicine Research Fund, Chiang Mai University (Grant No. 099-2563)
 - Support the Children Foundation, Chiang Mai, Thailand.
+
+---
+
+## Citation
+
+Wattanasombat S, Tongjai S. NosoGraph: assembly pipeline and Neo4j knowledge graph for integrating clinical, microbial, and genomic data [computer software]. GitHub; 2026. Available from: https://github.com/STTLab/NosoGraph
