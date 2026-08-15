@@ -27,6 +27,14 @@ aligning the user-facing choice with the vendored module (`KRAKEN2_CLASSIFY`,
   the KG "metagenomics public extension", the `TaxonomicClassification` node
   label, and the historical `wf-metagenomics` references — are left as-is.
 
+### Fixed
+- **Cypher load templates updated for Neo4j 2025 / Desktop 2**
+  (`assets/nosograph_cypher_templates.csv`). Every LOAD DATA query now uses the
+  variable-scope `CALL (rec) { … }` subquery form — the scope-less
+  `CALL { WITH rec … }` is deprecated — and drops the obsolete `:auto`
+  implicit-transaction prefix, which errors in Neo4j Desktop 2. Load behaviour
+  is unchanged; `… IN TRANSACTIONS OF N ROWS` still batches as before.
+
 ## [0.2.1-demo.1] - 2026-07-14
 
 Patch bump from `0.2.0-demo.1`: a refresh of the vendored modules, plus the
