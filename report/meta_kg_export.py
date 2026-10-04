@@ -5,15 +5,17 @@
 Reads one sample's Kraken2 report (produced by the vendored ``kraken2-classify``
 module) and writes flat CSVs for manual bulk import into Neo4j via the LOAD DATA templates in
 ``assets/nosograph_cypher_templates.csv``. The node labels, property names and
-relationship types match the migrated ``nosograph`` graph schema; the
-taxonomic-classification subgraph is a public NosoGraph extension built on the generic
+relationship types match the ``nosograph`` library schema; the
+taxonomic-classification subgraph is built on the generic
 ``ProcessRun`` pattern (mirrors ``VariantCallingRun:ProcessRun``, keyed on
 ``process_run_id``).
 
 Target subgraph:
 
-  (Sample)-[:CLASSIFIED_IN]->(:ProcessRun:TaxonomicClassification)
-          -[:CLASSIFIED_FROM]->(:BioDataFile{FASTQ})
+  (:ProcessRun:TaxonomicClassification {sample_id})-[:CLASSIFIED_FROM]->(:BioDataFile{FASTQ})
+
+There is no Sample edge: analyses hang off the data file they consumed (BioDataFile
+provenance rule); ``sample_id`` is a denormalized per-sample anchor.
 
 The identified taxa are NOT materialised as ``Organism`` nodes. Kraken2 output is an
 untrusted, per-run classification produced before the curated database is built, and
@@ -25,7 +27,7 @@ cannot store a list-of-maps property). Recover rows with ``apoc.convert.fromJson
 
 Emitted (under ``<outdir>/kg/``):
 
-  taxonomic_classification.csv  — TaxonomicClassification ProcessRun (linked to Sample);
+  taxonomic_classification.csv  — TaxonomicClassification ProcessRun (carries sample_id);
                                   carries ``taxa_json`` (filtered taxa, sorted by abundance)
   meta_reads.csv                — BioDataFile node (input FASTQ; CLASSIFIED_FROM)
 
