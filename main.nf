@@ -7,7 +7,7 @@ include { KRAKEN2_CLASSIFY }   from './modules/vendor/kraken2-classify/main.nf'
 include { ASSEMBLY_QC_IDEN }   from './modules/vendor/assembly-qc-iden/main.nf'
 // Individual QC steps, so the autocycler path can run CheckM2/BLAST only when their DB is given.
 include { QUAST }                 from './modules/vendor/assembly-qc-iden/qc/quast.nf'
-include { CHECKM2 as QC_CHECKM2 } from './modules/vendor/assembly-qc-iden/qc/checkm2.nf'
+include { CHECKM2 }               from './modules/vendor/assembly-qc-iden/qc/checkm2.nf'
 include { BLAST }                 from './modules/vendor/assembly-qc-iden/iden/blast.nf'
 include { KG_EXPORT }          from './modules/local/kg_export.nf'
 include { META_KG_EXPORT }     from './modules/local/meta_kg_export.nf'
@@ -20,6 +20,29 @@ include { META_KG_EXPORT }     from './modules/local/meta_kg_export.nf'
 //       --long_reads reads.fastq.gz [--checkm2_db <dmnd>] [--blast_db <db prefix>]
 //   nextflow run main.nf --pipeline kraken2-classify --sample_id S01 \
 //       --long_reads reads.fastq.gz --kraken2_db <kraken2 DB dir>
+// Post-assembly QC for the autocycler path, grouped so its tasks show as ASSEMBLY_QC:<step>.
+// QUAST always runs; CheckM2 and BLAST run only when their DB is supplied, and otherwise
+// emit the same sentinels KG_EXPORT gets on the bacterial-assembly path.
+workflow ASSEMBLY_QC {
+    take:
+        assembly
+        reads
+        reference
+
+    main:
+        QUAST(assembly, reads, reference)
+        checkm2 = params.checkm2_db
+            ? CHECKM2(assembly).results
+            : channel.value(file("${projectDir}/assets/NO_CHECKM2"))
+        blast = params.blast_db
+            ? BLAST(assembly).results
+            : channel.value(file("${projectDir}/assets/NO_BLAST_IDEN"))
+
+    emit:
+        checkm2
+        blast
+}
+
 workflow {
     if (params.pipeline == 'autocycler') {
         if (!params.sample_id)  error "Missing required param: --sample_id"
@@ -30,24 +53,15 @@ workflow {
                          .consensus.first()
 
         // --- Post-assembly QC (assembly-qc-iden processes, vendored & untouched) ---
-        // QUAST always runs; CheckM2 and BLAST run only when their DB is supplied, and
-        // otherwise hand KG_EXPORT the same sentinels the bacterial-assembly path uses.
         qc_iden_nofile = file("${projectDir}/modules/vendor/assembly-qc-iden/assets/NO_FILE")
-        QUAST(assembly_v,
-              channel.fromPath(params.long_reads, checkIfExists: false),
-              channel.fromPath(params.reference ?: qc_iden_nofile, checkIfExists: false))
-
-        checkm2_v = params.checkm2_db
-            ? QC_CHECKM2(assembly_v).results
-            : channel.value(file("${projectDir}/assets/NO_CHECKM2"))
-        blast_iden_v = params.blast_db
-            ? BLAST(assembly_v).results
-            : channel.value(file("${projectDir}/assets/NO_BLAST_IDEN"))
+        ASSEMBLY_QC(assembly_v,
+                    channel.fromPath(params.long_reads, checkIfExists: false),
+                    channel.fromPath(params.reference ?: qc_iden_nofile, checkIfExists: false))
 
         // --- Knowledge-graph export (NosoGraph-owned). No Flye assembly_info here:
         // circularity comes from Autocycler's `circular=` FASTA header tags instead.
         KG_EXPORT(assembly_v, channel.value(file("${projectDir}/assets/NO_FLYE_INFO")),
-                  checkm2_v, blast_iden_v)
+                  ASSEMBLY_QC.out.checkm2, ASSEMBLY_QC.out.blast)
 
     } else if (params.pipeline == 'bacterial-assembly') {
         // --- Validate (mirrors the vendored AUTO_BACTERIAL_ASSEMBLY wrapper) ---
