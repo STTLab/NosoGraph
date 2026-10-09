@@ -40,7 +40,7 @@ process KG_EXPORT {
     def iden_arg  = blast_iden_dir.name != 'NO_BLAST_IDEN' \
         ? "--blast-iden ${blast_iden_dir}/${params.sample_id}.contig_identification.tsv" : ""
     """
-    python ${projectDir}/report/kg_export.py \\
+    python3 ${projectDir}/report/kg_export.py \\
         --sample    ${params.sample_id} \\
         --assembler ${assembler} \\
         --fasta     ${assembly_fasta} \\
