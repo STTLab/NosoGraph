@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# Env for the NosoGraph-owned KG exporters (report/kg_export.py, report/meta_kg_export.py),
+# used by KG_EXPORT and META_KG_EXPORT under -profile micromamba. Under the default
+# singularity profile these steps have no container and run on the host Python instead
+# (pip install -r requirements.txt). Keep the package list in step with requirements.txt.
+name: nosograph-kg-export
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12            # matches the AVX2-safe pin used by the vendored envs
+  - pandas
