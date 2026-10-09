@@ -34,12 +34,15 @@ process KG_EXPORT {
     def cm2_arg   = checkm2_dir.name != 'NO_CHECKM2'   ? "--checkm2 ${checkm2_dir}"  : ""
     // assembly-qc-iden publishes blast/<sample_id>.contig_identification.tsv; the staged
     // input is that blast/ dir. NO_BLAST_IDEN sentinel => skip (Contig.accession stays "").
+    // The autocycler path has no single assembler; record the pipeline instead of the
+    // bacterial-assembly --assembler default.
+    def assembler = params.pipeline == 'autocycler' ? 'autocycler' : params.assembler
     def iden_arg  = blast_iden_dir.name != 'NO_BLAST_IDEN' \
         ? "--blast-iden ${blast_iden_dir}/${params.sample_id}.contig_identification.tsv" : ""
     """
     python ${projectDir}/report/kg_export.py \\
         --sample    ${params.sample_id} \\
-        --assembler ${params.assembler} \\
+        --assembler ${assembler} \\
         --fasta     ${assembly_fasta} \\
         --fastq     ${fastq_abs} \\
         ${info_arg} \\
