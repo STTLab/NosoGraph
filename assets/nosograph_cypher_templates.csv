@@ -22,6 +22,7 @@ CREATE CONSTRAINT seqrun_id       IF NOT EXISTS FOR (n:SequencingRun)   REQUIRE 
 CREATE CONSTRAINT vcr_id          IF NOT EXISTS FOR (n:VariantCallingRun) REQUIRE n.process_run_id IS UNIQUE;
 CREATE CONSTRAINT variant_key     IF NOT EXISTS FOR (n:Variant) REQUIRE (n.REF_ACC, n.POS, n.REF, n.ALT, n.hgvs_c, n.hgvs_p) IS NODE KEY;
 CREATE CONSTRAINT tcr_id          IF NOT EXISTS FOR (n:TaxonomicClassification) REQUIRE n.process_run_id IS UNIQUE;
+CREATE INDEX tc_sample_id         IF NOT EXISTS FOR (n:TaxonomicClassification) ON (n.sample_id);
 CREATE CONSTRAINT antibiotic_class IF NOT EXISTS FOR (n:AntibioticClass) REQUIRE n.name IS UNIQUE;
 CREATE CONSTRAINT snomed_sctid     IF NOT EXISTS FOR (n:SNOMED)          REQUIRE n.sctid IS NODE KEY;",5,1,false
 01 Departments,Hand-authored clinical CSV in the Neo4j import directory root.,"LOAD CSV WITH HEADERS FROM 'file:///Departments.csv' AS rec
@@ -65,7 +66,7 @@ CALL (rec) {
   MERGE (a)-[adm:ADMITTED_TO]->(w)
   SET adm.room_no = rec.room_no, adm.bed_no = rec.bed_no
 } IN TRANSACTIONS OF 500 ROWS;",9,2,false
-05 Antibiotics,Antibiotic reference vocabulary. PUBLIC EXTENSION: :Antibiotic is not in the core nosograph lib schema (AMR support is a planned amr_genotype handler).,"LOAD CSV WITH HEADERS FROM 'file:///Antibiotic.csv' AS rec
+05 Antibiotics,Antibiotic reference vocabulary.,"LOAD CSV WITH HEADERS FROM 'file:///Antibiotic.csv' AS rec
 CALL (rec) {
   MERGE (ab:Antibiotic {antibiotic_id: rec.antibiotic_id})
   SET ab.name = rec.name, ab.abbreviation = rec.abbreviation,
@@ -93,7 +94,7 @@ CALL (rec) {
   MATCH (o:Organism {taxid: rec.taxid})
   MERGE (rg)-[:REFERENCE_GENOME_OF]->(o)
 } IN TRANSACTIONS OF 500 ROWS;",13,2,false
-09 Antibiotic Susceptibility (MIC/AST),Specimen -[:TESTED_FOR]-> (:LabResult:BacterialCulture) -[:AGAINST]-> Antibiotic. PUBLIC EXTENSION: the AGAINST->Antibiotic edge and AST properties are NosoGraph extensions of the lib LabResult subtype.,"LOAD CSV WITH HEADERS FROM 'file:///LabResults.csv' AS rec
+09 Antibiotic Susceptibility (MIC/AST),Specimen -[:TESTED_FOR]-> (:LabResult:BacterialCulture) -[:AGAINST]-> Antibiotic.,"LOAD CSV WITH HEADERS FROM 'file:///LabResults.csv' AS rec
 CALL (rec) {
   MERGE (lr:LabResult:BacterialCulture {lab_id: rec.lab_id})
     ON CREATE SET lr.created_at = datetime()
@@ -134,7 +135,7 @@ CALL (rec) {
 WITH rec WHERE rec.file_type = 'FASTA' AND rec.assembly_id IS NOT NULL AND rec.assembly_id <> ''
 CALL (rec) {
   MERGE (f:BioDataFile {uri: rec.uri})
-  SET f.file_type = rec.file_type, f.compressed = rec.compressed, f.sha256 = rec.sha256
+  SET f.file_type = rec.file_type, f.compressed = toBoolean(rec.compressed), f.sha256 = rec.sha256
   WITH f, rec
   MATCH (a:Assembly {assembly_id: rec.assembly_id})
   MERGE (a)-[:PRODUCE]->(f)
@@ -143,7 +144,7 @@ CALL (rec) {
 WITH rec WHERE rec.file_type = 'FASTQ'
 CALL (rec) {
   MERGE (f:BioDataFile {uri: rec.uri})
-  SET f.file_type = rec.file_type, f.compressed = rec.compressed
+  SET f.file_type = rec.file_type, f.compressed = toBoolean(rec.compressed)
   WITH f, rec
   MATCH (s:Sample {sample_id: rec.sample_id})-[:HAS_ASSEMBLY]->(a:Assembly)
   MERGE (a)-[:ASSEMBLED_FROM]->(f)
@@ -184,23 +185,22 @@ CALL (rec, hgvs_c, hgvs_p) {
   MERGE (rg)-[:HAS_FEATURE]->(f)
   MERGE (v)-[:AFFECTS]->(f)
 } IN TRANSACTIONS OF 500 ROWS;",21,2,false
-17 Taxonomic Classification (pipeline),"Replace <sample_id>. Sample -[:CLASSIFIED_IN]-> (:ProcessRun:TaxonomicClassification). Identified taxa ride along as the tc.taxa_json QC blob (untrusted per-run classification, not modelled as Organism nodes). PUBLIC EXTENSION: the :TaxonomicClassification ProcessRun subtype is a NosoGraph kraken2-classify extension (not in the core nosograph lib schema).","LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/taxonomic_classification.csv' AS rec
+17 Taxonomic Classification (pipeline),"Replace <sample_id>. (:ProcessRun:TaxonomicClassification), linked only to the reads it consumed (step 18) - no Sample edge (BioDataFile provenance rule); tc.sample_id is the per-sample anchor. Identified taxa ride along as the tc.taxa_json QC blob (untrusted per-run classification, not modelled as Organism nodes).","LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/taxonomic_classification.csv' AS rec
 CALL (rec) {
-  MERGE (s:Sample {sample_id: rec.sample_id})
   MERGE (tc:ProcessRun:TaxonomicClassification {process_run_id: rec.process_run_id})
     ON CREATE SET tc.process = 'taxonomic_classification',
                   tc.created_at = CASE WHEN rec.created_at IS NOT NULL AND rec.created_at <> '' THEN date(rec.created_at) ELSE NULL END
-  SET tc.tool = rec.tool,
+  SET tc.sample_id = rec.sample_id,
+      tc.tool = rec.tool,
       tc.classified_reads   = CASE WHEN rec.classified_reads   <> '' THEN toInteger(rec.classified_reads)   ELSE NULL END,
       tc.unclassified_reads = CASE WHEN rec.unclassified_reads <> '' THEN toInteger(rec.unclassified_reads) ELSE NULL END,
       tc.taxa_json = rec.taxa_json
-  MERGE (s)-[:CLASSIFIED_IN]->(tc)
 } IN TRANSACTIONS OF 500 ROWS;",29,2,false
-18 BioDataFile FASTQ (kraken2-classify),Replace <sample_id>. TaxonomicClassification -[:CLASSIFIED_FROM]-> BioDataFile{FASTQ}. PUBLIC EXTENSION (NosoGraph kraken2-classify; rows are header-only when the run was launched without input reads).,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/meta_reads.csv' AS rec
+18 BioDataFile FASTQ (kraken2-classify),Replace <sample_id>. TaxonomicClassification -[:CLASSIFIED_FROM]-> BioDataFile{FASTQ}. Rows are header-only when the run was launched without input reads.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/meta_reads.csv' AS rec
 WITH rec WHERE rec.file_type = 'FASTQ' AND rec.uri IS NOT NULL AND rec.uri <> ''
 CALL (rec) {
   MERGE (f:BioDataFile {uri: rec.uri})
-  SET f.file_type = rec.file_type, f.compressed = rec.compressed, f.sha256 = rec.sha256
+  SET f.file_type = rec.file_type, f.compressed = toBoolean(rec.compressed), f.sha256 = rec.sha256
   WITH f, rec
   MATCH (tc:TaxonomicClassification {process_run_id: rec.process_run_id})
   MERGE (tc)-[:CLASSIFIED_FROM]->(f)
@@ -224,10 +224,10 @@ Variants per gene,High-impact variant load per locus.,"MATCH (:VariantCallingRun
 RETURN f.locus_tag AS gene, count(v) AS variants,
        collect(DISTINCT v.IMPACT) AS impacts
 ORDER BY variants DESC;",26,3,false
-Pathogens detected per sample,"Metagenomics read-set QC: unpack each sample's tc.taxa_json blob (species S + genus G, plus an 'Other' bucket) into rows, ranked by abundance. taxa_json is a QC glance, not a curated Organism subgraph.","MATCH (s:Sample)-[:CLASSIFIED_IN]->(tc:TaxonomicClassification)
+Pathogens detected per sample,"Metagenomics read-set QC: unpack each sample's tc.taxa_json blob (species S + genus G, plus an 'Other' bucket) into rows, ranked by abundance. taxa_json is a QC glance, not a curated Organism subgraph.","MATCH (tc:TaxonomicClassification)
 WHERE tc.taxa_json IS NOT NULL AND tc.taxa_json <> ''
 UNWIND apoc.convert.fromJsonList(tc.taxa_json) AS taxon
-RETURN s.sample_id AS sample, taxon.sciname AS organism, taxon.taxid AS taxid,
+RETURN tc.sample_id AS sample, taxon.sciname AS organism, taxon.taxid AS taxid,
        taxon.rank AS rank, taxon.read_count AS reads, taxon.abundance AS abundance
 ORDER BY sample, abundance DESC;",32,3,false
 Schema visualization,Render the live node/relationship schema.,CALL db.schema.visualization();,27,4,false

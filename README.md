@@ -146,17 +146,18 @@ It reads the per-sample Kraken2 report (`kraken2/<sample_id>.kraken2.report.txt`
 species + genus) and writes a knowledge-graph CSV bundle to
 `results/sample_meta/kg/` (`taxonomic_classification.csv`, `meta_reads.csv`). The input
 FASTQ given to `--long_reads` is also recorded as a `BioDataFile` node. The resulting subgraph
-(a public NosoGraph extension built on the generic `ProcessRun` pattern) is:
+(built on the generic `ProcessRun` pattern) is:
 
 ```mermaid
 graph LR
-  S[Sample] -->|CLASSIFIED_IN| TC["ProcessRun:TaxonomicClassification<br/>(taxa_json)"]
+  TC["ProcessRun:TaxonomicClassification<br/>(sample_id, taxa_json)"]
   TC -->|CLASSIFIED_FROM| F["BioDataFile {FASTQ}"]
 ```
 
 The identified taxa are **not** modelled as `Organism` nodes: Kraken2 output is an untrusted,
 per-run classification (produced before the curated DB is built), and it isn't meant to be
-traversed in the graph. Instead they ride along as a single JSON-string property `taxa_json`
+traversed in the graph. Like every analysis, the classification hangs off the data file it
+consumed, not the `Sample` directly; `tc.sample_id` identifies the sample. Instead they ride along as a single JSON-string property `taxa_json`
 on the `TaxonomicClassification` node — a read-set QC glance, sorted by abundance and
 pre-filtered with an adaptive z-score bucket (taxa below `--kraken2_z_min` fold into an
 `"Other"` row; filtering is skipped when there are fewer than `--kraken2_min_taxa` taxa).
