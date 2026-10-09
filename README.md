@@ -84,6 +84,9 @@ Container images live at `<container_registry>/bioinf-<tool>:<container_tag>` (d
 | `--racon_iter` | Racon polishing iterations | `1` |
 | `--pilon_iter` | Pilon polishing iterations | `1` |
 | `--checkm2_db` | Path to CheckM2 database (`uniref100.KO.1.dmnd`) | — |
+| `--blast_db` | BLAST nucleotide DB prefix; enables per-contig identification (`Contig.accession`) | — |
+| `--reference` | Reference FASTA for QUAST reference-based stats (optional) | — |
+| `--assemblers` | Autocycler only: comma-separated assembler stack | `flye,miniasm,raven` |
 | `--queue` | SLURM partition name (`-profile slurm` only) | — |
 
 ---
@@ -123,6 +126,25 @@ nextflow run main.nf \
     --outdir results \
     --threads 32
 ```
+
+Multi-assembler consensus with [Autocycler](https://github.com/rrwick/Autocycler):
+
+```bash
+nextflow run main.nf \
+    --pipeline autocycler \
+    --sample_id sample_03 \
+    --long_reads reads.fastq.gz \
+    --genome_size 5m \
+    --outdir results/sample_03 \
+    --threads 16 \
+    --checkm2_db /path/to/uniref100.KO.1.dmnd
+```
+
+QUAST always runs on the consensus; CheckM2 and BLAST run only when `--checkm2_db` /
+`--blast_db` are given. The `kg/` bundle goes to `results/sample_03/sample_03/kg/`, with
+`Assembly.assembler = autocycler` and contig circularity taken from Autocycler's FASTA
+headers. Use one `--outdir` per sample. See the
+[Autocycler Tutorial](https://github.com/STTLab/NosoGraph/wiki/Autocycler-Tutorial).
 
 ---
 
