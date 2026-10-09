@@ -7,6 +7,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/). Prereleases
 carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
 
+## [Unreleased]
+
+> **Breaking KG change.** Graphs loaded with earlier Cypher templates keep stale
+> `CLASSIFIED_IN` edges and a string-typed `BioDataFile.compressed`; reload or
+> migrate them.
+
+### Fixed
+- **Kraken2 and BioDataFile templates now match the nosograph library schema.**
+  `TaxonomicClassification` hangs off the FASTQ it consumed (`CLASSIFIED_FROM`)
+  instead of `Sample-[:CLASSIFIED_IN]->`, with `tc.sample_id` as the per-sample
+  anchor (new `TaxonomicClassification(sample_id)` index); `BioDataFile.compressed`
+  is stored as a boolean. ([#19](https://github.com/STTLab/NosoGraph/pull/19))
+
+### Changed
+- **Branch model:** `feat/…` / `fix/…` branches merge into `develop`; `develop`
+  reaches `main` by pull request. Version tags are cut on `main` only. The
+  per-release `vX.Y.x-demo.N` / `-rc.N` branches are retired (`v0.2.x-demo.1` is
+  kept as the source of the 0.2 demo-kit).
+- **Demo-kit distribution:** the gold demo-kit is no longer carried on a release
+  branch; it is attached to the GitHub Release as
+  `nosograph-demo-kit-<tag>.tar.gz` (+ `.sha256`).
+
 ## [0.3.0-rc.1] - 2026-08-15
 
 Minor bump from `0.2.1-demo.1`, first release candidate of the 0.3 line. The
@@ -145,6 +167,7 @@ unchanged — it still consumes a standard 6-column Kraken2 report.
 
 Initial demo prerelease.
 
+[Unreleased]: https://github.com/STTLab/NosoGraph/compare/v0.3.0-rc.1...develop
 [0.3.0-rc.1]: https://github.com/STTLab/NosoGraph/releases/tag/v0.3.0-rc.1
 [0.2.1-demo.1]: https://github.com/STTLab/NosoGraph/releases/tag/v0.2.1-demo.1
 [0.2.0-demo.1]: https://github.com/STTLab/NosoGraph/releases/tag/v0.2.0-demo.1
