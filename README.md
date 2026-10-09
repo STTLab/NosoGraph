@@ -317,6 +317,17 @@ From the **QUERIES** folder (or the Query editor) you can:
   AMR susceptibility summary, shared-contig clonality clusters, variants per gene)
 - Visualize relationships interactively and expand nodes (double-click)
 
+## Development
+
+| Branch | Role |
+|---|---|
+| `feat/…`, `fix/…`, `docs/…` | Short-lived work branches, cut from `develop`; merged (or PR'd) back into `develop` |
+| `develop` | Integration branch; reaches `main` by pull request |
+| `main` | Stable branch; every version tag (`vMAJOR.MINOR.PATCH[-suffix.N]`, GPG-signed) is cut here |
+
+Demo builds ship the gold demo-kit as a GitHub Release asset (`nosograph-demo-kit-<tag>.tar.gz` + `.sha256`),
+not on a branch. See the [Changelog](https://github.com/STTLab/NosoGraph/wiki/Changelog) for release history.
+
 ## Acknowledgement
 
 This work was supported by the following funding bodies:

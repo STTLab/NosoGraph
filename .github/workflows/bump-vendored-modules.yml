@@ -5,8 +5,8 @@
 # minaminii/bioinformatics-workflows, published on a per-module branch
 # `workflow-<name>` (see .claude/contracts/.../*-vendor-contract.md).
 #
-# Trigger it from the branch you want to update (e.g. v0.1.x-demo.1 or main):
-# the PR it opens targets whatever ref you dispatched on.
+# Trigger it from `develop` (the integration branch): the PR it opens targets
+# whatever ref you dispatched on, and reaches `main` with the next release PR.
 #
 # Prerequisites (repo settings):
 #   - Secret   VENDOR_REPO_TOKEN : a PAT (or fine-grained token) with `contents:read`
