@@ -59,7 +59,7 @@ mv nextflow ~/bin/
 | `micromamba` | Conda (via micromamba) | No container runtime available |
 | `test` | Neither (stub only) | `-stub-run` DAG validation |
 
-Container images live at `<container_registry>/bioinf-<tool>:<container_tag>` (default registry `ghcr.io/minaminii`, tag `latest`). Override the registry/tag with `--container_registry` / `--container_tag`, or pin `--container_tag` to an immutable digest for a locked release. Only the vendored assembly → polish → QC tooling from [bioinformatics-workflows](https://github.com/minaminii/bioinformatics-workflows) (under `modules/vendor/`) is containerised. The NosoGraph-owned CSV exporters (`report/*.py`) are plain pandas scripts that run on the host Python interpreter — install their dependency with `pip install -r requirements.txt` into the environment you launch Nextflow from.
+Container images live at `<container_registry>/bioinf-<tool>:<container_tag>` (default registry `ghcr.io/minaminii`, tag `latest`). Override the registry/tag with `--container_registry` / `--container_tag`, or pin `--container_tag` to an immutable digest for a locked release. Only the vendored assembly → polish → QC tooling from [bioinformatics-workflows](https://github.com/minaminii/bioinformatics-workflows) (under `modules/vendor/`) is containerised. The NosoGraph-owned CSV exporters (`report/*.py`) are plain pandas scripts. Under `-profile micromamba` they run in a small conda env built from `envs/kg_export.yaml`; under the container profiles they run on the host Python interpreter, so install their dependency with `pip install -r requirements.txt` into the environment you launch Nextflow from.
 
 ---
 

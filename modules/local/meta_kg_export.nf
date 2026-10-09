@@ -16,9 +16,10 @@ nextflow.enable.types = true
 
 process META_KG_EXPORT {
     tag "${params.sample_id}"
-    // Runs on the host Python (pandas only — see requirements.txt). No conda/container:
-    // it's a trivial CSV writer, not a bioinformatics tool, so it needs neither the
-    // frozen-image guarantee nor a solved env.
+    // A trivial pandas CSV writer, not a bioinformatics tool. Under -profile micromamba it
+    // runs in the small envs/kg_export.yaml env; with conda disabled (singularity/test) it
+    // has no container and runs on the host Python (pip install -r requirements.txt).
+    conda "${projectDir}/envs/kg_export.yaml"
     publishDir "${params.outdir}/${params.sample_id}", mode: 'copy'
 
     input:
@@ -30,7 +31,7 @@ process META_KG_EXPORT {
     script:
     def reads_arg = params.long_reads ? "--reads ${file(params.long_reads)}" : ""
     """
-    python ${projectDir}/report/meta_kg_export.py \\
+    python3 ${projectDir}/report/meta_kg_export.py \\
         --sample          ${params.sample_id} \\
         --kraken2-report  ${kraken2_report} \\
         ${reads_arg} \\
