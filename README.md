@@ -1,21 +1,23 @@
 # bacterial-assembly module
 
 A self-contained Nextflow module for the classic bacterial assembly →
-polish → QC path: a single long-read assembler, optional long-read (Racon)
+polish → QC path: a single assembler (long-read, or hybrid with Unicycler), optional long-read (Racon)
 and short-read (Pilon) polishing, and a CheckM2 completeness/contamination
 report.
 
 ## Scope
 
 - **In:** one long-read FASTQ(.gz) (`--long_reads`); optionally a paired
-  short-read set (`--read1` / `--read2`) for Pilon polishing.
+  short-read set (`--read1` / `--read2`) for Pilon polishing and/or hybrid
+  Unicycler assembly.
 - **Out:**
   - `<outdir>/01_assembly/assembly.contigs.fasta`
+  - `<outdir>/01_assembly/assembly.gfa`, `unicycler.log` (with `--assembler unicycler`)
   - `<outdir>/02_polish/01_racon/racon_final.fa` (if `--racon_iter > 0`)
   - `<outdir>/02_polish/02_pilon/pilon_final.fasta` (if `--pilon_iter > 0`)
-  - `<outdir>/checkm2_results/` (when Pilon runs)
-- **Steps:** assemble (`canu` | `flye`) → Racon polish (× `racon_iter`) →
-  Pilon polish (× `pilon_iter`) → CheckM2.
+  - `<outdir>/checkm2_results/` (on the final assembly, polished or not; only if `--checkm2_db` is given)
+- **Steps:** assemble (`canu` | `flye` | `unicycler`) → Racon polish (× `racon_iter`) →
+  Pilon polish (× `pilon_iter`) → CheckM2 (if `--checkm2_db`).
 - **Self-contained:** owns its params, process resources, and conda env (declared
   inline via `${moduleDir}`). No dependency on the parent repo's `nextflow.config`
   or `conda/` dir — the whole `modules/bacterial-assembly/` directory is portable.
@@ -48,13 +50,14 @@ nextflow run main.nf --pipeline assembly_polish_qc \
 | Param | Default | Description |
 |----|----|----|
 | `--long_reads` | _(required)_ | Long-read FASTQ(.gz). |
-| `--assembler` | `flye` | `canu` or `flye`. |
-| `--tech` | _(required)_ | `nanopore`, `nanopore-hq`, or `pacbio`. |
+| `--assembler` | `flye` | `canu`, `flye`, or `unicycler`. Unicycler runs hybrid when `--read1`/`--read2` are given, long-only otherwise. |
+| `--unicycler_mode` | `normal` | Unicycler bridging mode: `conservative`, `normal`, or `bold`. |
+| `--tech` | _(required)_ | `nanopore`, `nanopore-hq`, or `pacbio`. Optional for `unicycler` only with `--racon_iter 0` (Racon needs it for its minimap2 preset). |
 | `--genome_size` | `null` | e.g. `5m`, `2.6g`. Required for `canu`; optional for `flye`. |
 | `--racon_iter` | `1` | Long-read polish iterations. `0` skips Racon. |
-| `--pilon_iter` | `1` | Short-read polish iterations. `0` skips Pilon + CheckM2. |
-| `--read1` / `--read2` | `null` | Paired short reads. Required when `pilon_iter > 0`. |
-| `--checkm2_db` | `null` | Path to `uniref100.KO.1.dmnd`. Required when CheckM2 runs. |
+| `--pilon_iter` | `1` | Short-read polish iterations. `0` skips Pilon (CheckM2 is unaffected). Auto-skipped when `--read1`/`--read2` are absent. |
+| `--read1` / `--read2` | `null` | Paired short reads. Used by Pilon (skipped if absent) and for hybrid Unicycler. Supply both or neither. |
+| `--checkm2_db` | `null` | Path to `uniref100.KO.1.dmnd`. If omitted, CheckM2 is skipped with a warning at startup. |
 | `--threads` | `4` | Threads per job. |
 | `--outdir` | `results` | Output directory. |
 | `--container_registry` | `ghcr.io/minaminii` | Registry for the `bioinf-*` images (`-profile singularity`). |
@@ -76,8 +79,9 @@ nextflow run main.nf --pipeline assembly_polish_qc \
   at build time and is frozen in the layers). Conda (`-profile micromamba`) re-solves the
   loose yamls against rolling channels and is the best-effort fallback for hosts without
   Singularity. Build/publish/pin instructions live in [`containers/README.md`](../../../containers/README.md).
-- **Conda envs:** assembly + polishing share `conda/bacterial-assembly.yaml`; CheckM2
-  uses `conda/qc.yaml`. They are split because CheckM2's stack (newer python + tensorflow
+- **Conda envs:** flye/canu + polishing share `conda/bacterial-assembly.yaml`; Unicycler
+  uses `conda/unicycler.yaml` (image `bioinf-unicycler`), kept apart so its SPAdes/python
+  stack never perturbs the AVX2-safe flye pins; CheckM2 uses `conda/qc.yaml`. They are split because CheckM2's stack (newer python + tensorflow
   + zlib) cannot co-solve with the AVX2-safe assembler pins. `conda/qc.yaml` pins `numpy <2`
   (tensorflow 2.17's C-extensions crash on numpy ≥2.1) — keep it in sync with
   `assembly-qc-iden/conda/checkm2.yaml`, the shared build source for `bioinf-checkm2`.
@@ -97,7 +101,8 @@ nextflow run ./bacterial-assembly -profile test -stub-run \
 ```
 
 Expect FLYE → RACON → PILON → CHECKM2 to execute as stubs. Swap `--assembler canu`
-or set `--pilon_iter 0` to exercise the other paths.
+or `--assembler unicycler` (drop `--read1/--read2` for long-only Unicycler), or set
+`--pilon_iter 0` to exercise the other paths.
 
 ## Software dependencies
 
