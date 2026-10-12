@@ -59,7 +59,7 @@ mv nextflow ~/bin/
 | `micromamba` | Conda (via micromamba) | No container runtime available |
 | `test` | Neither (stub only) | `-stub-run` DAG validation |
 
-Container images live at `<container_registry>/bioinf-<tool>:<container_tag>` (default registry `ghcr.io/minaminii`, tag `latest`). Override the registry/tag with `--container_registry` / `--container_tag`, or pin `--container_tag` to an immutable digest for a locked release. Only the vendored assembly → polish → QC tooling from [bioinformatics-workflows](https://github.com/minaminii/bioinformatics-workflows) (under `modules/vendor/`) is containerised. The NosoGraph-owned CSV exporters (`report/*.py`) are plain pandas scripts that run on the host Python interpreter — install their dependency with `pip install -r requirements.txt` into the environment you launch Nextflow from.
+Container images live at `<container_registry>/bioinf-<tool>:<container_tag>` (default registry `ghcr.io/minaminii`, tag `latest`). Override the registry/tag with `--container_registry` / `--container_tag`, or pin `--container_tag` to an immutable digest for a locked release. Only the vendored assembly → polish → QC tooling from [bioinformatics-workflows](https://github.com/minaminii/bioinformatics-workflows) (under `modules/vendor/`) is containerised. The NosoGraph-owned CSV exporters (`report/*.py`) are plain pandas scripts. Under `-profile micromamba` they run in a small conda env built from `envs/kg_export.yaml`; under the container profiles they run on the host Python interpreter, so install their dependency with `pip install -r requirements.txt` into the environment you launch Nextflow from.
 
 ---
 
@@ -85,6 +85,9 @@ Container images live at `<container_registry>/bioinf-<tool>:<container_tag>` (d
 | `--racon_iter` | Racon polishing iterations | `1` |
 | `--pilon_iter` | Pilon polishing iterations | `1` |
 | `--checkm2_db` | Path to CheckM2 database (`uniref100.KO.1.dmnd`) | — |
+| `--blast_db` | BLAST nucleotide DB prefix; enables per-contig identification (`Contig.accession`) | — |
+| `--reference` | Reference FASTA for QUAST reference-based stats (optional) | — |
+| `--assemblers` | Autocycler only: comma-separated assembler stack | `flye,miniasm,raven` |
 | `--queue` | SLURM partition name (`-profile slurm` only) | — |
 
 ---
@@ -143,6 +146,25 @@ nextflow run main.nf \
 Racon and Pilon still run after Unicycler by default; set `--racon_iter 0 --pilon_iter 0`
 to keep Unicycler's own polished output. Unicycler has its own conda env and image
 (`bioinf-unicycler`).
+
+Multi-assembler consensus with [Autocycler](https://github.com/rrwick/Autocycler):
+
+```bash
+nextflow run main.nf \
+    --pipeline autocycler \
+    --sample_id sample_03 \
+    --long_reads reads.fastq.gz \
+    --genome_size 5m \
+    --outdir results/sample_03 \
+    --threads 16 \
+    --checkm2_db /path/to/uniref100.KO.1.dmnd
+```
+
+QUAST always runs on the consensus; CheckM2 and BLAST run only when `--checkm2_db` /
+`--blast_db` are given. The `kg/` bundle goes to `results/sample_03/sample_03/kg/`, with
+`Assembly.assembler = autocycler` and contig circularity taken from Autocycler's FASTA
+headers. Use one `--outdir` per sample. See the
+[Autocycler Tutorial](https://github.com/STTLab/NosoGraph/wiki/Autocycler-Tutorial).
 
 ---
 

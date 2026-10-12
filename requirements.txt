@@ -1,5 +1,6 @@
 # Third-party Python dependencies for the knowledge-graph CSV exporters
 # (report/kg_export.py and report/meta_kg_export.py). These processes run on the host
-# Python interpreter — they are not containerised or conda-managed — so install these
-# into the environment Nextflow launches from: pip install -r requirements.txt
+# Python interpreter when conda is off (the default singularity profile) — install these
+# into the environment Nextflow launches from: pip install -r requirements.txt.
+# Under -profile micromamba they come from envs/kg_export.yaml instead; keep both in step.
 pandas

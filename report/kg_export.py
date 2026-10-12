@@ -13,8 +13,9 @@ Emitted (under ``<outdir>/kg/``):
   sample.csv          — Sample node
   assembly.csv        — Assembly node (linked to Sample; CheckM2 completeness/contamination)
   biodata_files.csv   — BioDataFile nodes (input FASTQ + consensus FASTA)
-  contigs.csv         — Contig nodes (FASTA joined with Flye assembly_info.txt; accession
-                        from the assembly-qc-iden BLAST identification table when present)
+  contigs.csv         — Contig nodes (FASTA joined with Flye assembly_info.txt, or the
+                        FASTA header's ``circular=`` tag for Autocycler; accession from
+                        the assembly-qc-iden BLAST identification table when present)
 
 Contig IDs are namespaced ``{sample_id}:{contig_name}`` so they are globally unique
 across samples (Flye restarts numbering from contig_1 every run). Per STTLab
@@ -23,6 +24,7 @@ file identity uses SHA-256; the Contig sequence hash uses md5 (matching the lib)
 """
 import argparse
 import csv
+import gzip
 import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
@@ -94,6 +96,27 @@ def _read_blast_iden(iden_path: Path | None) -> dict:
     return acc_by_contig
 
 
+def _read_header_circularity(fasta) -> dict:
+    """Map contig name -> bool from ``circular=true|false`` FASTA header tags.
+
+    Autocycler writes headers like ``>1 length=5000 circular=true topology=circular``.
+    Contigs without the tag are left out, so their circularity stays unknown ("").
+    """
+    opener = gzip.open if str(fasta).endswith(".gz") else open
+    circular = {}
+    with opener(fasta, "rt", encoding="utf-8") as fh:
+        for line in fh:
+            if not line.startswith(">"):
+                continue
+            tokens = line[1:].split()
+            if not tokens:
+                continue
+            for tag in tokens[1:]:
+                if tag in ("circular=true", "circular=false"):
+                    circular[tokens[0]] = tag == "circular=true"
+    return circular
+
+
 def export_assembly_and_contigs(kg_dir, sample_id, assembler, fasta, flye_info, checkm2,
                                 blast_iden=None):
     assembly_id = f"{sample_id}_assembly"
@@ -115,9 +138,14 @@ def export_assembly_and_contigs(kg_dir, sample_id, assembler, fasta, flye_info, 
 
     flye_info_path = str(flye_info) if flye_info and Path(flye_info).exists() else None
     acc_by_contig = _read_blast_iden(blast_iden)
+    header_circular = _read_header_circularity(fasta)
     contig_rows = []
     for rec in parse_assembly(str(fasta), flye_info_path):
         name = rec["name"]
+        # Flye info wins; otherwise fall back to the header tag (Autocycler).
+        is_circular = rec["is_circular"]
+        if is_circular is None:
+            is_circular = header_circular.get(name)
         contig_rows.append({
             "contig_id":          f"{sample_id}:{name}",
             "assembly_id":        assembly_id,
@@ -127,7 +155,7 @@ def export_assembly_and_contigs(kg_dir, sample_id, assembler, fasta, flye_info, 
             "accession":          acc_by_contig.get(name, ""),
             "length":             _blank(rec["length"]),
             "coverage":           _blank(rec["coverage"]),
-            "is_circular":        _bool_str(rec["is_circular"]),
+            "is_circular":        _bool_str(is_circular),
             "is_repeated_region": _bool_str(rec["is_repeated_region"]),
             "multiplicity":       _blank(rec["multiplicity"]),
             "alt_group":          _blank(rec["alt_group"]),

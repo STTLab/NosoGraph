@@ -14,6 +14,11 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
 > migrate them.
 
 ### Added
+- **QC and knowledge-graph export for `--pipeline autocycler`.** QUAST always runs
+  on the consensus assembly; CheckM2 and BLAST run when `--checkm2_db` /
+  `--blast_db` are given (the `assembly-qc-iden` processes, unchanged). The run now
+  writes `<outdir>/<sample_id>/kg/` with `Assembly.assembler = autocycler`, and
+  `Contig.is_circular` is read from Autocycler's `circular=` FASTA header tags.
 - **Unicycler assembler** for `--pipeline bacterial-assembly` (`--assembler unicycler`,
   from the vendored module bump in [#21](https://github.com/STTLab/NosoGraph/pull/21)):
   hybrid with `--read1`/`--read2`, long-read-only without; `--unicycler_mode` picks the
@@ -29,6 +34,8 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
   is stored as a boolean. ([#19](https://github.com/STTLab/NosoGraph/pull/19))
 
 ### Changed
+- **`--sample_id` is now required for `--pipeline autocycler`** (it names the QC
+  and `kg/` outputs). Existing Autocycler commands need it added.
 - **Branch model:** `feat/…` / `fix/…` branches merge into `develop`; `develop`
   reaches `main` by pull request. Version tags are cut on `main` only. The
   per-release `vX.Y.x-demo.N` / `-rc.N` branches are retired (`v0.2.x-demo.1` is

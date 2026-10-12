@@ -14,9 +14,10 @@ nextflow.enable.types = true
 
 process KG_EXPORT {
     tag "${params.sample_id}"
-    // Runs on the host Python (pandas only — see requirements.txt). No conda/container:
-    // it's a trivial CSV writer, not a bioinformatics tool, so it needs neither the
-    // frozen-image guarantee nor a solved env.
+    // A trivial pandas CSV writer, not a bioinformatics tool. Under -profile micromamba it
+    // runs in the small envs/kg_export.yaml env; with conda disabled (singularity/test) it
+    // has no container and runs on the host Python (pip install -r requirements.txt).
+    conda "${projectDir}/envs/kg_export.yaml"
     publishDir "${params.outdir}/${params.sample_id}", mode: 'copy'
 
     input:
@@ -34,12 +35,15 @@ process KG_EXPORT {
     def cm2_arg   = checkm2_dir.name != 'NO_CHECKM2'   ? "--checkm2 ${checkm2_dir}"  : ""
     // assembly-qc-iden publishes blast/<sample_id>.contig_identification.tsv; the staged
     // input is that blast/ dir. NO_BLAST_IDEN sentinel => skip (Contig.accession stays "").
+    // The autocycler path has no single assembler; record the pipeline instead of the
+    // bacterial-assembly --assembler default.
+    def assembler = params.pipeline == 'autocycler' ? 'autocycler' : params.assembler
     def iden_arg  = blast_iden_dir.name != 'NO_BLAST_IDEN' \
         ? "--blast-iden ${blast_iden_dir}/${params.sample_id}.contig_identification.tsv" : ""
     """
-    python ${projectDir}/report/kg_export.py \\
+    python3 ${projectDir}/report/kg_export.py \\
         --sample    ${params.sample_id} \\
-        --assembler ${params.assembler} \\
+        --assembler ${assembler} \\
         --fasta     ${assembly_fasta} \\
         --fastq     ${fastq_abs} \\
         ${info_arg} \\
