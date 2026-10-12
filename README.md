@@ -39,7 +39,7 @@ The NosoGraph sequencing pipeline supports hybrid and long-read bacterial genome
 
 #### Requirements
 
-- [Nextflow](https://www.nextflow.io/docs/latest/install.html) ≥ 23.04
+- [Nextflow](https://www.nextflow.io/docs/latest/install.html) ≥ 26.04.4
 - [Singularity / Apptainer](https://apptainer.org/) (default execution engine)
 - [Conda](https://docs.conda.io/) or [Micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html) — only if you opt into `-profile micromamba` instead of containers
 
