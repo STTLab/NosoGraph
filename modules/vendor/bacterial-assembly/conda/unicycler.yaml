@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# LOOSE conda spec — best-effort fallback for `-profile micromamba`/conda runs.
+# The reproducible distribution is the container image built from this file
+# (ghcr.io/minaminii/bioinf-unicycler, pinned by digest); see containers/README.md.
+#
+# Single source of truth: the bacterial-assembly module symlinks this file
+# (nextflow/modules/bacterial-assembly/conda/unicycler.yaml -> here). Edit it here;
+# the subtree-split pipeline materializes a real copy for vendored modules.
+#
+# Kept separate from envs/bacterial-assembly.yaml so Unicycler's stack (SPAdes,
+# newer python) never perturbs the AVX2-safe flye 2.9.5 / python 3.9 solve.
+name: unicycler
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  # --- AVX2-safe pins --------------------------------------------------------
+  # The Intel Xeon E5-2670 v0 test server lacks AVX2; newer bioconda builds emit
+  # AVX2 and abort with "Illegal instruction" (SIGILL). racon 1.5.0 requires AVX2,
+  # so hold racon (used by Unicycler's long-read steps) at 1.4.20. SPAdes has not
+  # yet been validated on that host — pin an older spades here if it SIGILLs.
+  # Relax on AVX2-capable hardware.
+  - racon=1.4.20
+  # ---------------------------------------------------------------------------
+  - unicycler
