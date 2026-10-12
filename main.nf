@@ -12,7 +12,7 @@ include { META_KG_EXPORT }     from './modules/local/meta_kg_export.nf'
 // --pipeline; the bacterial-assembly and kraken2-classify paths additionally export a
 // per-sample knowledge graph to <outdir>/<sample_id>/kg/.
 //   nextflow run main.nf --pipeline bacterial-assembly --sample_id S01 \
-//       --long_reads reads.fastq.gz --assembler flye --tech nanopore ...
+//       --long_reads reads.fastq.gz --assembler flye --tech nanopore ...   (canu | flye | unicycler)
 //   nextflow run main.nf --pipeline autocycler --long_reads <reads>
 //   nextflow run main.nf --pipeline kraken2-classify --sample_id S01 \
 //       --long_reads reads.fastq.gz --kraken2_db <kraken2 DB dir>
@@ -24,8 +24,15 @@ workflow {
         // --- Validate (mirrors the vendored AUTO_BACTERIAL_ASSEMBLY wrapper) ---
         if (!params.sample_id)  error "Missing required param: --sample_id"
         if (!params.long_reads) error "Missing required param: --long_reads"
-        if (!params.assembler)  error "Missing required param: --assembler (canu | flye)"
+        if (!params.assembler)  error "Missing required param: --assembler (canu | flye | unicycler)"
+        if (!(params.assembler in ['canu', 'flye', 'unicycler']))
+            error "Unknown --assembler '${params.assembler}'. Use: canu, flye, unicycler"
+        // NB: never fires in practice — the vendored assembly-qc-iden config defaults
+        // params.tech to 'nanopore', so --tech is effectively optional (nanopore).
         if (!params.tech)       error "Missing required param: --tech (nanopore | nanopore-hq | pacbio)"
+        // Half a pair would silently turn a hybrid Unicycler run into a long-read-only one.
+        if (params.assembler == 'unicycler' && (params.read1 as boolean) != (params.read2 as boolean))
+            error "--assembler unicycler needs both --read1 and --read2 for hybrid assembly (or neither for long-read-only)"
         // Long-read-only runs are first-class: with no short reads there is nothing for
         // Pilon to polish with, so drop the short-read polish instead of erroring. params
         // is read-only at runtime, so resolve the effective value here and pass it in.
@@ -45,17 +52,19 @@ workflow {
         // --- Knowledge-graph export (NosoGraph-owned) ---
         // The vendored core does not surface Flye's assembly_info.txt through its emits,
         // so source it from its publishDir once the assembly has completed (Flye only;
-        // a NO_FILE sentinel otherwise). The NO_CHECKM2 sentinel is a guard only: the
-        // vendored core now always runs CheckM2, on whichever assembly comes out last.
+        // a NO_FILE sentinel otherwise). The NO_CHECKM2 sentinel stands in when the
+        // vendored core skips CheckM2 (no --checkm2_db).
         // Distinct sentinels so the optional inputs never collide on a shared filename.
         no_flye_info  = file("${projectDir}/assets/NO_FLYE_INFO")
         no_checkm2    = file("${projectDir}/assets/NO_CHECKM2")
         no_blast_iden = file("${projectDir}/assets/NO_BLAST_IDEN")
 
         assembly_v  = BACTERIAL_ASSEMBLY.out.assembly.first()
+        // Only for Flye runs, so a stale assembly_info.txt left in --outdir by an
+        // earlier Flye run is never attached to a Canu or Unicycler assembly.
         flye_info_v = assembly_v.map { fa ->
             def info = file("${params.outdir}/01_assembly/assembly_info.txt")
-            info.exists() ? info : no_flye_info
+            (params.assembler == 'flye' && info.exists()) ? info : no_flye_info
         }
 
         // --- QC + identification enrichment (assembly-qc-iden, vendored & untouched) ---

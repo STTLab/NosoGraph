@@ -35,7 +35,7 @@ cd NosoGraph
 
 ### NosoGraph pipeline
 
-The NosoGraph sequencing pipeline supports hybrid and long-read bacterial genome assembly (Flye, Canu), iterative polishing (Racon, Pilon), and quality assessment (CheckM2). It is implemented in [Nextflow](https://www.nextflow.io/) DSL2 and runs on local machines and HPC clusters (SLURM).
+The NosoGraph sequencing pipeline supports hybrid and long-read bacterial genome assembly (Flye, Canu, Unicycler), iterative polishing (Racon, Pilon), and quality assessment (CheckM2). It is implemented in [Nextflow](https://www.nextflow.io/) DSL2 and runs on local machines and HPC clusters (SLURM).
 
 #### Requirements
 
@@ -76,8 +76,9 @@ Container images live at `<container_registry>/bioinf-<tool>:<container_tag>` (d
 | `--kraken2_min_taxa` | Keep all taxa (no bucketing) when fewer than this many | `3` |
 | `--read1` | Paired-end short reads R1 (required for Pilon) | — |
 | `--read2` | Paired-end short reads R2 (required for Pilon) | — |
-| `--assembler` | Assembler: `canu` or `flye` | required |
-| `--tech` | Sequencing technology: `nanopore`, `nanopore-hq`, or `pacbio` | required |
+| `--assembler` | Assembler: `canu`, `flye`, or `unicycler`. Unicycler runs hybrid when `--read1`/`--read2` are given (supply both or neither), long-read-only otherwise. | required |
+| `--unicycler_mode` | Unicycler bridging mode: `conservative`, `normal`, or `bold` | `normal` |
+| `--tech` | Sequencing technology: `nanopore`, `nanopore-hq`, or `pacbio` | `nanopore` |
 | `--genome_size` | Genome size (e.g. `5m`, `2.6g`) — required for Canu | — |
 | `--outdir` | Output directory | `results` |
 | `--threads` | Threads per process | `1` |
@@ -123,6 +124,25 @@ nextflow run main.nf \
     --outdir results \
     --threads 32
 ```
+
+Hybrid assembly with Unicycler (drop `--read1`/`--read2` for a long-read-only run):
+
+```bash
+nextflow run main.nf \
+    --sample_id sample_04 \
+    --long_reads reads.fastq.gz \
+    --read1 sample_R1.fastq.gz \
+    --read2 sample_R2.fastq.gz \
+    --assembler unicycler \
+    --tech nanopore \
+    --outdir results \
+    --threads 16 \
+    --checkm2_db /path/to/uniref100.KO.1.dmnd
+```
+
+Racon and Pilon still run after Unicycler by default; set `--racon_iter 0 --pilon_iter 0`
+to keep Unicycler's own polished output. Unicycler has its own conda env and image
+(`bioinf-unicycler`).
 
 ---
 
@@ -193,6 +213,7 @@ Default resource allocations per process label (adjustable in `modules/vendor/ba
 |---|---|---|---|
 | Assembly (Flye) | `--threads` | 32 GB | 24 h |
 | Assembly (Canu) | `--threads` | 32 GB | 24 h |
+| Assembly (Unicycler) | `--threads` | 32 GB | 24 h |
 | Racon iteration | `--threads` | 32 GB | 24 h |
 | Pilon iteration | `--threads` | 28 GB | 12 h |
 | CheckM2 | `--threads` | 32 GB | 12 h |

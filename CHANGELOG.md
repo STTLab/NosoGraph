@@ -13,7 +13,15 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
 > `CLASSIFIED_IN` edges and a string-typed `BioDataFile.compressed`; reload or
 > migrate them.
 
+### Added
+- **Unicycler assembler** for `--pipeline bacterial-assembly` (`--assembler unicycler`,
+  from the vendored module bump in [#21](https://github.com/STTLab/NosoGraph/pull/21)):
+  hybrid with `--read1`/`--read2`, long-read-only without; `--unicycler_mode` picks the
+  bridging mode. Supplying only one of `--read1`/`--read2` is now an error.
+
 ### Fixed
+- **Flye `assembly_info.txt` is only used for Flye runs**, so a stale one left in
+  `--outdir` can no longer be attached to a Canu or Unicycler assembly's contigs.
 - **Kraken2 and BioDataFile templates now match the nosograph library schema.**
   `TaxonomicClassification` hangs off the FASTQ it consumed (`CLASSIFIED_FROM`)
   instead of `Sample-[:CLASSIFIED_IN]->`, with `tc.sample_id` as the per-sample
