@@ -6,7 +6,7 @@ Ready-to-copy config files for running `--pipeline autocycler`. Copy one, edit t
 ```bash
 cp example/nextflow-config/autocycler-workstation.config my-run.config
 # edit my-run.config
-nextflow run main.nf -profile micromamba -c my-run.config \
+./nosograph assembly autocycler -profile micromamba -c my-run.config \
     --sample_id BAC_S001 --long_reads /data/reads/BAC_S001.fastq.gz \
     --outdir results/BAC_S001
 ```
@@ -28,6 +28,7 @@ Command-line options such as `--threads 16` still override anything in the file.
 - **One job can't ask for more than the machine has.** With the local executor, a job requesting more CPUs (`threads`) or memory than the machine has fails immediately with `Process requirement exceeds available CPUs/memory`. Lower `threads` or the `memory` values to fit.
 - **`--sample_id` is required.** It names the QC results and the `<outdir>/<sample_id>/kg/` export.
 - **One `--outdir` per sample.** Only `kg/` goes under `<sample_id>/`; the assemblies and QC results go straight into `--outdir`, so samples sharing an output folder overwrite each other.
+- **The assembler stack comes from `assemblers` in the file** when you run plain `nosograph assembly autocycler`. Naming a stack on the command line, e.g. `nosograph assembly autocycler,flye,canu`, overrides it.
 - **Combine files** by repeating `-c`, for example `-c autocycler-slurm.config -c autocycler-canu-stack.config`. Later files win where they overlap.
 - To see what Nextflow will actually use, run `nextflow -c my-run.config config -profile <profiles>`.
 
