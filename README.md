@@ -63,6 +63,34 @@ Container images live at `<container_registry>/bioinf-<tool>:<container_tag>` (d
 
 ---
 
+#### The `nosograph` command
+
+Run assemblies with `./nosograph` at the repo root. It is a short form of `nextflow run` that
+picks the pipeline for you: the first argument after `assembly` is the assembler, and
+everything else goes to Nextflow unchanged.
+
+| Command | Runs |
+|---|---|
+| `nosograph assembly canu` / `flye` / `unicycler` | `--pipeline bacterial-assembly --assembler <it>` |
+| `nosograph assembly autocycler` | `--pipeline autocycler` with its default assemblers (`flye,miniasm,raven`) |
+| `nosograph assembly autocycler,canu,flye` | `--pipeline autocycler --assemblers canu,flye` |
+
+```bash
+./nosograph assembly flye -profile micromamba \
+    --sample_id sample_01 --long_reads reads.fastq.gz --outdir results --threads 16
+```
+
+To call it from anywhere, link it onto your `PATH`, e.g.
+`ln -s "$PWD/nosograph" ~/.local/bin/nosograph`. Add `--dry-run` to print the `nextflow run`
+command instead of running it, and see `nosograph assembly --help` for more examples.
+Nextflow's own options keep one dash (`-profile`, `-resume`, `-c`); pipeline parameters take two.
+
+`nextflow run main.nf --pipeline ...` still works and is what `nosograph` runs underneath.
+Metagenomics (`--pipeline kraken2-classify`) has no `nosograph` subcommand yet, so it is run
+with `nextflow run` directly.
+
+---
+
 #### Pipeline parameters
 
 | Parameter | Description | Default |
@@ -90,40 +118,21 @@ Container images live at `<container_registry>/bioinf-<tool>:<container_tag>` (d
 | `--assemblers` | Autocycler only: comma-separated assembler stack | `flye,miniasm,raven` |
 | `--queue` | SLURM partition name (`-profile slurm` only) | — |
 
+`nosograph assembly` sets `--pipeline`, `--assembler` and `--assemblers` from its assembler
+argument, so don't pass them yourself; every other parameter above goes on the command line as usual.
+
 ---
-
-#### The `nosograph` command
-
-`./nosograph` (repo root) is a short form of `nextflow run` that picks the pipeline for you.
-The first argument after `assembly` is the assembler; everything else goes to Nextflow unchanged.
-
-| Command | Runs |
-|---|---|
-| `nosograph assembly canu` / `flye` / `unicycler` | `--pipeline bacterial-assembly --assembler <it>` |
-| `nosograph assembly autocycler` | `--pipeline autocycler` with its default assemblers (`flye,miniasm,raven`) |
-| `nosograph assembly autocycler,canu,flye` | `--pipeline autocycler --assemblers canu,flye` |
-
-```bash
-./nosograph assembly flye -profile micromamba \
-    --sample_id sample_01 --long_reads reads.fastq.gz --outdir results --threads 16
-```
-
-To call it from anywhere, link it onto your `PATH`, e.g.
-`ln -s "$PWD/nosograph" ~/.local/bin/nosograph`. Add `--dry-run` to print the `nextflow run`
-command instead of running it, and see `nosograph assembly --help` for more examples.
-Nextflow's own options keep one dash (`-profile`, `-resume`, `-c`); pipeline parameters take two.
 
 #### Running locally
 
 Hybrid assembly with Flye:
 
 ```bash
-nextflow run main.nf \
+./nosograph assembly flye \
     --sample_id sample_01 \
     --long_reads reads.fastq.gz \
     --read1 sample_R1.fastq.gz \
     --read2 sample_R2.fastq.gz \
-    --assembler flye \
     --tech nanopore \
     --outdir results \
     --threads 16 \
@@ -139,10 +148,9 @@ import into Neo4j (see [NosoGraph knowledge graph](#nosograph-knowledge-graph)).
 Long-read-only assembly with Canu:
 
 ```bash
-nextflow run main.nf \
+./nosograph assembly canu \
     --sample_id sample_02 \
     --long_reads pacbio_reads.fastq.gz \
-    --assembler canu \
     --tech pacbio \
     --genome_size 5m \
     --outdir results \
@@ -152,12 +160,11 @@ nextflow run main.nf \
 Hybrid assembly with Unicycler (drop `--read1`/`--read2` for a long-read-only run):
 
 ```bash
-nextflow run main.nf \
+./nosograph assembly unicycler \
     --sample_id sample_04 \
     --long_reads reads.fastq.gz \
     --read1 sample_R1.fastq.gz \
     --read2 sample_R2.fastq.gz \
-    --assembler unicycler \
     --tech nanopore \
     --outdir results \
     --threads 16 \
@@ -171,8 +178,7 @@ to keep Unicycler's own polished output. Unicycler has its own conda env and ima
 Multi-assembler consensus with [Autocycler](https://github.com/rrwick/Autocycler):
 
 ```bash
-nextflow run main.nf \
-    --pipeline autocycler \
+./nosograph assembly autocycler \
     --sample_id sample_03 \
     --long_reads reads.fastq.gz \
     --genome_size 5m \
@@ -236,12 +242,11 @@ sample** template (unpacks `taxa_json`; see [NosoGraph knowledge graph](#nosogra
 Add `-profile slurm` to submit each process as an independent SLURM job. Specify your partition with `--queue`:
 
 ```bash
-nextflow run main.nf \
+./nosograph assembly flye \
     -profile slurm \
     --queue normal \
     --sample_id sample_01 \
     --long_reads reads.fastq.gz \
-    --assembler flye \
     --tech nanopore \
     --outdir results \
     --threads 16 \
@@ -264,7 +269,7 @@ Default resource allocations per process label (adjustable in `modules/vendor/ba
 To resume a run after a failure:
 
 ```bash
-nextflow run main.nf -profile slurm -resume ...
+./nosograph assembly flye -profile slurm -resume ...
 ```
 
 ---
@@ -274,9 +279,8 @@ nextflow run main.nf -profile slurm -resume ...
 Use `-stub-run` with `-profile test` to verify the full DAG compiles and all process connections are correct without needing real input files, containers, or conda environments:
 
 ```bash
-nextflow run main.nf -stub-run -profile test \
+./nosograph assembly canu -stub-run -profile test \
     --sample_id sample_01 \
-    --assembler canu \
     --tech pacbio \
     --genome_size 5m \
     --long_reads dummy.fastq.gz \
