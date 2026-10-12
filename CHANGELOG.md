@@ -14,6 +14,9 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
 > migrate them.
 
 ### Added
+- **`nosograph` command** at the repo root: `nosograph assembly <assembler> ...` picks the
+  pipeline from the assembler (`canu` / `flye` / `unicycler` → `bacterial-assembly`;
+  `autocycler[,<assemblers>]` → `autocycler`) and passes everything else to `nextflow run`.
 - **QC and knowledge-graph export for `--pipeline autocycler`.** QUAST always runs
   on the consensus assembly; CheckM2 and BLAST run when `--checkm2_db` /
   `--blast_db` are given (the `assembly-qc-iden` processes, unchanged). The run now

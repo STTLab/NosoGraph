@@ -92,6 +92,27 @@ Container images live at `<container_registry>/bioinf-<tool>:<container_tag>` (d
 
 ---
 
+#### The `nosograph` command
+
+`./nosograph` (repo root) is a short form of `nextflow run` that picks the pipeline for you.
+The first argument after `assembly` is the assembler; everything else goes to Nextflow unchanged.
+
+| Command | Runs |
+|---|---|
+| `nosograph assembly canu` / `flye` / `unicycler` | `--pipeline bacterial-assembly --assembler <it>` |
+| `nosograph assembly autocycler` | `--pipeline autocycler` with its default assemblers (`flye,miniasm,raven`) |
+| `nosograph assembly autocycler,canu,flye` | `--pipeline autocycler --assemblers canu,flye` |
+
+```bash
+./nosograph assembly flye -profile micromamba \
+    --sample_id sample_01 --long_reads reads.fastq.gz --outdir results --threads 16
+```
+
+To call it from anywhere, link it onto your `PATH`, e.g.
+`ln -s "$PWD/nosograph" ~/.local/bin/nosograph`. Add `--dry-run` to print the `nextflow run`
+command instead of running it, and see `nosograph assembly --help` for more examples.
+Nextflow's own options keep one dash (`-profile`, `-resume`, `-c`); pipeline parameters take two.
+
 #### Running locally
 
 Hybrid assembly with Flye:

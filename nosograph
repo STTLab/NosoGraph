@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MPL-2.0
+#
+# nosograph — thin command-line wrapper around `nextflow run` for this repository.
+# It only picks the right --pipeline / --assembler(s) from a short subcommand; every
+# other option goes to Nextflow unchanged.
+#
+#   nosograph assembly flye      --sample_id S01 --long_reads reads.fq.gz ...
+#   nosograph assembly autocycler,canu,flye --sample_id S01 --long_reads reads.fq.gz ...
+#
+# Set NEXTFLOW to use a specific nextflow binary (default: `nextflow` on PATH).
+
+set -euo pipefail
+
+# Resolve the repo directory even when this script is reached through a symlink
+# (e.g. ~/.local/bin/nosograph -> <repo>/nosograph).
+src="${BASH_SOURCE[0]}"
+while [ -L "$src" ]; do
+    dir="$(cd -P "$(dirname "$src")" && pwd)"
+    src="$(readlink "$src")"
+    case "$src" in /*) ;; *) src="$dir/$src" ;; esac
+done
+PROJECT_DIR="$(cd -P "$(dirname "$src")" && pwd)"
+NEXTFLOW="${NEXTFLOW:-nextflow}"
+
+BACTERIAL_ASSEMBLERS="canu flye unicycler"
+
+usage() {
+    cat <<'EOF'
+Usage: nosograph <command> [arguments]
+
+Commands:
+  assembly <assembler>   Assemble one sample (see `nosograph assembly --help`)
+
+Options:
+  -h, --help             Show this help
+
+Any other options are passed straight to `nextflow run`, e.g. -profile, -resume,
+-c my.config, --sample_id, --long_reads, --outdir, --threads.
+EOF
+}
+
+usage_assembly() {
+    cat <<'EOF'
+Usage: nosograph assembly <assembler> [options for nextflow run]
+
+<assembler> picks the pipeline:
+  canu | flye | unicycler   single assembler   -> --pipeline bacterial-assembly --assembler <it>
+  autocycler                consensus, default stack (flye,miniasm,raven)
+                                               -> --pipeline autocycler
+  autocycler,<a>,<b>,...    consensus with your own stack
+                                               -> --pipeline autocycler --assemblers <a>,<b>,...
+
+Wrapper options:
+  --dry-run    Print the nextflow command instead of running it
+  -h, --help   Show this help
+
+Everything else goes to `nextflow run` unchanged. Nextflow's own options take ONE dash
+(-profile, -resume, -c); pipeline parameters take TWO (--sample_id, --outdir).
+
+Examples:
+  nosograph assembly flye -profile micromamba \
+      --sample_id S01 --long_reads reads.fastq.gz --outdir results --threads 16
+  nosograph assembly unicycler -profile micromamba \
+      --sample_id S02 --long_reads long.fq.gz --read1 R1.fq.gz --read2 R2.fq.gz
+  nosograph assembly autocycler,canu,flye -profile micromamba -resume \
+      --sample_id S03 --long_reads reads.fastq.gz --outdir results/S03 --threads 24
+EOF
+}
+
+die() {
+    echo "nosograph: $*" >&2
+    exit 2
+}
+
+is_bacterial_assembler() {
+    case " $BACTERIAL_ASSEMBLERS " in *" $1 "*) return 0 ;; esac
+    return 1
+}
+
+cmd_assembly() {
+    if [ $# -eq 0 ]; then
+        usage_assembly >&2
+        exit 2
+    fi
+    case "$1" in
+        -h|--help) usage_assembly; exit 0 ;;
+        -*) die "assembly: the assembler must come first, e.g. 'nosograph assembly flye ...' (got '$1')" ;;
+    esac
+
+    local choice="$1"
+    shift
+
+    # Split "autocycler,canu,flye" into its parts.
+    local parts=()
+    IFS=',' read -r -a parts <<< "$choice"
+    [ "${#parts[@]}" -gt 0 ] || die "assembly: empty assembler name"
+
+    local route=()
+    if [ "${parts[0]}" = "autocycler" ]; then
+        route=(--pipeline autocycler)
+        if [ "${#parts[@]}" -gt 1 ]; then
+            local stack="" a
+            for a in "${parts[@]:1}"; do
+                [ -n "$a" ] || die "assembly: empty assembler name in '$choice'"
+                [ "$a" != "autocycler" ] || die "assembly: 'autocycler' can only appear first in '$choice'"
+                stack="${stack:+$stack,}$a"
+            done
+            route+=(--assemblers "$stack")
+        fi
+    elif [ "${#parts[@]}" -gt 1 ]; then
+        die "assembly: several assemblers need Autocycler first, e.g. 'nosograph assembly autocycler,$choice'"
+    elif is_bacterial_assembler "$choice"; then
+        route=(--pipeline bacterial-assembly --assembler "$choice")
+    else
+        die "assembly: unknown assembler '$choice'. Use canu, flye, unicycler, or autocycler[,<assemblers>]"
+    fi
+
+    # The wrapper owns the routing parameters; refuse duplicates rather than guess.
+    local passthrough=() dry_run=0 arg
+    for arg in "$@"; do
+        case "$arg" in
+            --dry-run) dry_run=1 ;;
+            -h|--help) usage_assembly; exit 0 ;;
+            --pipeline|--pipeline=*|--assembler|--assembler=*|--assemblers|--assemblers=*)
+                die "assembly: don't pass ${arg%%=*}; it is set from '$choice'" ;;
+            *) passthrough+=("$arg") ;;
+        esac
+    done
+
+    local cmd=("$NEXTFLOW" run "$PROJECT_DIR" "${route[@]}")
+    [ "${#passthrough[@]}" -eq 0 ] || cmd+=("${passthrough[@]}")
+
+    if [ "$dry_run" -eq 1 ]; then
+        printf '%q ' "${cmd[@]}"
+        echo
+        exit 0
+    fi
+    exec "${cmd[@]}"
+}
+
+[ $# -gt 0 ] || { usage >&2; exit 2; }
+command="$1"
+shift
+case "$command" in
+    assembly) cmd_assembly "$@" ;;
+    -h|--help|help) usage ;;
+    *) die "unknown command '$command'. Run 'nosograph --help'." ;;
+esac
