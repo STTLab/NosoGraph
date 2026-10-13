@@ -17,6 +17,11 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
 - **`nosograph` command** at the repo root: `nosograph assembly <assembler> ...` picks the
   pipeline from the assembler (`canu` / `flye` / `unicycler` → `bacterial-assembly`;
   `autocycler[,<assemblers>]` → `autocycler`) and passes everything else to `nextflow run`.
+  `nosograph kraken2-classify ...` runs `--pipeline kraken2-classify`.
+- **Installation defaults in `.env`.** A `.env` file next to the `nosograph` script (see
+  `.env.example`; gitignored) sets parameters such as `checkm2_db`, `blast_db` and
+  `kraken2_db` for every `nosograph` run. The command line still overrides them, and
+  `--<parameter> false` turns one off for a run. Plain `nextflow run` does not read it.
 - **QC and knowledge-graph export for `--pipeline autocycler`.** QUAST always runs
   on the consensus assembly; CheckM2 and BLAST run when `--checkm2_db` /
   `--blast_db` are given (the `assembly-qc-iden` processes, unchanged). The run now
@@ -28,6 +33,10 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
   bridging mode. Supplying only one of `--read1`/`--read2` is now an error.
 
 ### Fixed
+- **Every database folder is bound into the containers.** With more than one of
+  `--checkm2_db`, `--blast_db` and `--kraken2_db` set, only the first module's database
+  folder was bound under Singularity, so e.g. BLAST could not see its database when CheckM2's
+  lived elsewhere. NosoGraph now binds all of them, alongside any `--singularity_binds`.
 - **Flye `assembly_info.txt` is only used for Flye runs**, so a stale one left in
   `--outdir` can no longer be attached to a Canu or Unicycler assembly's contigs.
 - **Kraken2 and BioDataFile templates now match the nosograph library schema.**
@@ -43,6 +52,13 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
   `results/S01/01_assembly/`. Several samples can share one `--outdir`. Scripts that read
   `<outdir>/01_assembly/…` and similar paths need `<sample_id>/` added. The vendored
   modules are unchanged: `conf/publish.config` re-points their `publishDir`.
+- **The Kraken2 pipeline is described as read identity estimation and contaminant
+  screening** in the README, wiki, help text and code comments, and its saved query is
+  renamed **Read identity per sample (Kraken2)**.
+- **Kraken2 KG file renamed: `meta_reads.csv` → `kraken2_reads.csv`** (in
+  `<outdir>/<sample_id>/kg/`), and LOAD DATA step 18 now reads the new name. Re-export, or
+  rename the file, before loading Kraken2 outputs from earlier runs with the new templates.
+  The exporter is now `report/kraken2_kg_export.py` (process `KRAKEN2_KG_EXPORT`).
 - **`--sample_id` is now required for `--pipeline autocycler`** (it names the QC
   and `kg/` outputs). Existing Autocycler commands need it added.
 - **Branch model:** `feat/…` / `fix/…` branches merge into `develop`; `develop`

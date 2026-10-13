@@ -196,7 +196,7 @@ CALL (rec) {
       tc.unclassified_reads = CASE WHEN rec.unclassified_reads <> '' THEN toInteger(rec.unclassified_reads) ELSE NULL END,
       tc.taxa_json = rec.taxa_json
 } IN TRANSACTIONS OF 500 ROWS;",29,2,false
-18 BioDataFile FASTQ (kraken2-classify),Replace <sample_id>. TaxonomicClassification -[:CLASSIFIED_FROM]-> BioDataFile{FASTQ}. Rows are header-only when the run was launched without input reads.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/meta_reads.csv' AS rec
+18 BioDataFile FASTQ (kraken2-classify),Replace <sample_id>. TaxonomicClassification -[:CLASSIFIED_FROM]-> BioDataFile{FASTQ}. Rows are header-only when the run was launched without input reads.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/kraken2_reads.csv' AS rec
 WITH rec WHERE rec.file_type = 'FASTQ' AND rec.uri IS NOT NULL AND rec.uri <> ''
 CALL (rec) {
   MERGE (f:BioDataFile {uri: rec.uri})
@@ -224,7 +224,7 @@ Variants per gene,High-impact variant load per locus.,"MATCH (:VariantCallingRun
 RETURN f.locus_tag AS gene, count(v) AS variants,
        collect(DISTINCT v.IMPACT) AS impacts
 ORDER BY variants DESC;",26,3,false
-Pathogens detected per sample,"Metagenomics read-set QC: unpack each sample's tc.taxa_json blob (species S + genus G, plus an 'Other' bucket) into rows, ranked by abundance. taxa_json is a QC glance, not a curated Organism subgraph.","MATCH (tc:TaxonomicClassification)
+Read identity per sample (Kraken2),"Kraken2 read identity and contaminant screen: unpack each sample's tc.taxa_json blob (species S + genus G, plus an 'Other' bucket) into rows, ranked by abundance. taxa_json is a QC glance, not a curated Organism subgraph.","MATCH (tc:TaxonomicClassification)
 WHERE tc.taxa_json IS NOT NULL AND tc.taxa_json <> ''
 UNWIND apoc.convert.fromJsonList(tc.taxa_json) AS taxon
 RETURN tc.sample_id AS sample, taxon.sciname AS organism, taxon.taxid AS taxid,

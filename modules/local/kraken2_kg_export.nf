@@ -1,20 +1,20 @@
 /*
  * SPDX-License-Identifier: MPL-2.0
  *
- * NosoGraph-owned (not vendored) process: export one sample's metagenomics
- * classification outputs to Neo4j-ready CSVs under <outdir>/<sample_id>/kg/, matching
+ * NosoGraph-owned (not vendored) process: export one sample's Kraken2 read-identity
+ * and contaminant-screen outputs to Neo4j-ready CSVs under <outdir>/<sample_id>/kg/, matching
  * the migrated `nosograph` graph schema (taxonomic-classification public extension).
  * Consumes a Kraken2 report. The input FASTQ is sourced from params.long_reads when set
  * (for the BioDataFile node). Identified taxa ride along as a `taxa_json` QC blob on the
  * TaxonomicClassification node (no Organism nodes); the z-score "Other" bucket is tuned via
  * params.kraken2_z_min / params.kraken2_min_taxa. Bracken refinement is a future seam
- * (see meta_kg_export.py).
+ * (see kraken2_kg_export.py).
  */
 nextflow.enable.dsl=2
 
 nextflow.enable.types = true
 
-process META_KG_EXPORT {
+process KRAKEN2_KG_EXPORT {
     tag "${params.sample_id}"
     // A trivial pandas CSV writer, not a bioinformatics tool. Under -profile micromamba it
     // runs in the small envs/kg_export.yaml env; with conda disabled (singularity/test) it
@@ -31,7 +31,7 @@ process META_KG_EXPORT {
     script:
     def reads_arg = params.long_reads ? "--reads ${file(params.long_reads)}" : ""
     """
-    python3 ${projectDir}/report/meta_kg_export.py \\
+    python3 ${projectDir}/report/kraken2_kg_export.py \\
         --sample          ${params.sample_id} \\
         --kraken2-report  ${kraken2_report} \\
         ${reads_arg} \\
@@ -43,7 +43,7 @@ process META_KG_EXPORT {
     stub:
     """
     mkdir -p kg
-    for f in meta_reads taxonomic_classification; do
+    for f in kraken2_reads taxonomic_classification; do
         echo "stub" > kg/\$f.csv
     done
     """

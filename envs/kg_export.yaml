@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 #
-# Env for the NosoGraph-owned KG exporters (report/kg_export.py, report/meta_kg_export.py),
-# used by KG_EXPORT and META_KG_EXPORT under -profile micromamba. Under the default
+# Env for the NosoGraph-owned KG exporters (report/kg_export.py, report/kraken2_kg_export.py),
+# used by KG_EXPORT and KRAKEN2_KG_EXPORT under -profile micromamba. Under the default
 # singularity profile these steps have no container and run on the host Python instead
 # (pip install -r requirements.txt). Keep the package list in step with requirements.txt.
 name: nosograph-kg-export

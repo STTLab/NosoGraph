@@ -65,8 +65,8 @@ Container images live at `<container_registry>/bioinf-<tool>:<container_tag>` (d
 
 #### The `nosograph` command
 
-Run assemblies with `./nosograph` at the repo root. It is a short form of `nextflow run` that
-picks the pipeline for you: the first argument after `assembly` is the assembler, and
+Run the pipelines with `./nosograph` at the repo root. It is a short form of `nextflow run`
+that picks the pipeline for you from its subcommand (and, for `assembly`, the assembler);
 everything else goes to Nextflow unchanged.
 
 | Command | Runs |
@@ -74,6 +74,7 @@ everything else goes to Nextflow unchanged.
 | `nosograph assembly canu` / `flye` / `unicycler` | `--pipeline bacterial-assembly --assembler <it>` |
 | `nosograph assembly autocycler` | `--pipeline autocycler` with its default assemblers (`flye,miniasm,raven`) |
 | `nosograph assembly autocycler,canu,flye` | `--pipeline autocycler --assemblers canu,flye` |
+| `nosograph kraken2-classify` | `--pipeline kraken2-classify` |
 
 ```bash
 ./nosograph assembly flye -profile micromamba \
@@ -86,8 +87,22 @@ command instead of running it, and see `nosograph assembly --help` for more exam
 Nextflow's own options keep one dash (`-profile`, `-resume`, `-c`); pipeline parameters take two.
 
 `nextflow run main.nf --pipeline ...` still works and is what `nosograph` runs underneath.
-Metagenomics (`--pipeline kraken2-classify`) has no `nosograph` subcommand yet, so it is run
-with `nextflow run` directly.
+
+**Installation defaults (`.env`).** To avoid typing database paths on every run, copy
+[`.env.example`](.env.example) to `.env` next to the `nosograph` script (e.g.
+`/opt/NosoGraph/.env`) and set them there:
+
+```bash
+checkm2_db=/data/checkm2_db/CheckM2_database/uniref100.KO.1.dmnd
+blast_db=/data/blast/nt
+kraken2_db=/data/k2_standard
+```
+
+Each line is a pipeline parameter without its `--`. `nosograph` adds them to every run unless
+the command line sets that parameter, and prints which ones it added. `--<parameter> false`
+turns one off for a single run (e.g. `--blast_db false` skips BLAST). `.env` is gitignored, so
+installation paths stay out of the repository. Only `nosograph` reads it; plain `nextflow run`
+does not.
 
 ---
 
@@ -198,25 +213,25 @@ and contig circularity taken from Autocycler's FASTA headers. See the
 
 ---
 
-#### Metagenomics (pathogen identification)
+#### Read identity and contaminant screening (Kraken2)
 
-The `kraken2-classify` pipeline classifies long reads against a pre-built Kraken2 database and
-turns the result into a high-level, pathogen-ID knowledge graph — in a **single** Nextflow
-run. The vendored [`kraken2-classify`](modules/vendor/kraken2-classify/) module produces the
-Kraken2 report, which is exported to the `kg/` CSVs.
+The `kraken2-classify` pipeline classifies a sample's long reads against a pre-built Kraken2
+database, to estimate what the reads are and to screen for contaminants, and records the
+result in the knowledge graph — in a **single** Nextflow run. The vendored
+[`kraken2-classify`](modules/vendor/kraken2-classify/) module produces the Kraken2 report,
+which is exported to the `kg/` CSVs.
 
 ```bash
-nextflow run main.nf \
-    --pipeline kraken2-classify \
-    --sample_id sample_meta \
+./nosograph kraken2-classify \
+    --sample_id sample_k2 \
     --long_reads reads.fastq.gz \
     --kraken2_db /path/to/k2_standard \
     --outdir results
 ```
 
-It reads the per-sample Kraken2 report (`results/sample_meta/kraken2/sample_meta.kraken2.report.txt`, filtered to
+It reads the per-sample Kraken2 report (`results/sample_k2/kraken2/sample_k2.kraken2.report.txt`, filtered to
 species + genus) and writes a knowledge-graph CSV bundle to
-`results/sample_meta/kg/` (`taxonomic_classification.csv`, `meta_reads.csv`). The input
+`results/sample_k2/kg/` (`taxonomic_classification.csv`, `kraken2_reads.csv`). The input
 FASTQ given to `--long_reads` is also recorded as a `BioDataFile` node. The resulting subgraph
 (built on the generic `ProcessRun` pattern) is:
 
@@ -235,8 +250,8 @@ pre-filtered with an adaptive z-score bucket (taxa below `--kraken2_z_min` fold 
 `"Other"` row; filtering is skipped when there are fewer than `--kraken2_min_taxa` taxa).
 Recover rows in Neo4j Browser with `apoc.convert.fromJsonList`.
 
-Import these CSVs with **LOAD DATA** steps `17`–`18`, then run the **QUERIES → Pathogens detected per
-sample** template (unpacks `taxa_json`; see [NosoGraph knowledge graph](#nosograph-knowledge-graph)).
+Import these CSVs with **LOAD DATA** steps `17`–`18`, then run the **QUERIES → Read identity per
+sample (Kraken2)** template (unpacks `taxa_json`; see [NosoGraph knowledge graph](#nosograph-knowledge-graph)).
 
 ---
 
@@ -316,7 +331,7 @@ This repository provides:
 - A conceptual schema defining node labels, relationship types, and data domains
 - Example CSV files for data import ([`example/csv/`](./example/csv))
 - A single importable loader artefact — [`assets/nosograph_cypher_templates.csv`](./assets/nosograph_cypher_templates.csv) — a Neo4j Browser saved-queries file with the constraints, idempotent `LOAD CSV` import queries, and example analytical queries
-- Per-sample knowledge-graph exporters that the pipelines run to write `kg/` CSVs to `<outdir>/<sample_id>/kg/` — `report/kg_export.py` (bacterial assembly) and `report/meta_kg_export.py` (metagenomics pathogen ID)
+- Per-sample knowledge-graph exporters that the pipelines run to write `kg/` CSVs to `<outdir>/<sample_id>/kg/` — `report/kg_export.py` (bacterial assembly) and `report/kraken2_kg_export.py` (Kraken2 read identity and contaminant screening)
 - Guidance for setting up Neo4j as a working environment
 
 Users can adopt the schema as a starting point, extend it to fit their specific use cases, and integrate it with custom pipelines or applications as needed.
@@ -373,7 +388,7 @@ This repository ships no programmatic loader — the only loader artefact is the
    (`SETUP` / `LOAD DATA` / `QUERIES` / `UTILITIES`).
 2. Run **SETUP → Create Constraints** once.
 3. Run the **LOAD DATA** queries in order. For the per-sample genomic loads (`10`–`15`,
-   and `17`–`19` for metagenomics samples), replace `<sample_id>` in the
+   and `17`–`18` for Kraken2 samples), replace `<sample_id>` in the
    `file:///<sample_id>/kg/...` paths with your actual sample id.
 4. Each load is idempotent (`MERGE`, `IN TRANSACTIONS OF 500 ROWS`), so re-running is safe.
 

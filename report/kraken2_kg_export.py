@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
-"""NosoGraph metagenomics knowledge-graph CSV exporter.
+"""NosoGraph Kraken2 (read identity / contaminant screen) knowledge-graph CSV exporter.
 
 Reads one sample's Kraken2 report (produced by the vendored ``kraken2-classify``
 module) and writes flat CSVs for manual bulk import into Neo4j via the LOAD DATA templates in
@@ -29,7 +29,7 @@ Emitted (under ``<outdir>/kg/``):
 
   taxonomic_classification.csv  — TaxonomicClassification ProcessRun (carries sample_id);
                                   carries ``taxa_json`` (filtered taxa, sorted by abundance)
-  meta_reads.csv                — BioDataFile node (input FASTQ; CLASSIFIED_FROM)
+  kraken2_reads.csv             — BioDataFile node (input FASTQ; CLASSIFIED_FROM)
 
 Only species (rank ``S``) and genus (rank ``G``) rows are kept. ``taxa_json`` is pre-filtered
 with an adaptive z-score bucket: log10 abundances are z-scored (sample mean/std) and taxa
@@ -158,9 +158,9 @@ def export(kg_dir, sample_id, kraken2_report, reads, tool, z_min, min_taxa):
         }],
     )
 
-    meta_rows = []
+    reads_rows = []
     if reads_path is not None:  # FASTQ can be tens of GB; SHA-256 skipped (see kg_export.py).
-        meta_rows.append({
+        reads_rows.append({
             "uri":            fastq_uri,
             "file_type":      "FASTQ",
             "compressed":     "true" if reads_path.suffix in (".gz", ".bz2") else "false",
@@ -169,15 +169,15 @@ def export(kg_dir, sample_id, kraken2_report, reads, tool, z_min, min_taxa):
             "process_run_id": process_run_id,
         })
     _write_csv(
-        kg_dir / "meta_reads.csv",
+        kg_dir / "kraken2_reads.csv",
         ["uri", "file_type", "compressed", "sha256", "sample_id", "process_run_id"],
-        meta_rows,
+        reads_rows,
     )
 
 
 def main():
     p = argparse.ArgumentParser(
-        description="Export NosoGraph per-sample metagenomics outputs to Neo4j CSVs"
+        description="Export one sample's Kraken2 read-identity outputs to Neo4j CSVs"
     )
     p.add_argument("--sample", required=True, help="Sample ID")
     p.add_argument("--kraken2-report", required=True, help="Kraken2 report (.kraken2.report.txt)")
@@ -204,7 +204,7 @@ def main():
     )
 
     written = sorted(p.name for p in kg_dir.glob("*.csv"))
-    print(f"[meta_kg_export] {args.sample}: {len(written)} CSV(s) -> {kg_dir}")
+    print(f"[kraken2_kg_export] {args.sample}: {len(written)} CSV(s) -> {kg_dir}")
     for name in written:
         print(f"  {name}")
 
