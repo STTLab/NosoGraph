@@ -311,10 +311,11 @@ three id columns). Leave a cell blank if an analyte was not measured.
 | hemoglobin … nrbc          | Float  | ☐        | Analyte values (`wbc`, `platelet`, `mcv`, …) | 12.4                     |
 | *_unit                     | String | ☐        | Unit for the matching analyte                | g/dL                     |
 
-## Pipeline-produced genomic CSVs (`<sample_id>/kg/`)
+## Pipeline-produced genomic CSVs (`<sample_id>/assembly/<run_name>/kg/`)
 
 The remaining nodes (Sample assembly/contig provenance) are **not** hand-authored — the assembly
-pipeline writes them per sample to `<outdir>/<sample_id>/kg/` (`sample.csv`, `assembly.csv`,
-`biodata_files.csv`, `contigs.csv`) via `report/kg_export.py`. Copy that `kg/` directory into the
-Neo4j import directory next to these clinical CSVs and load it with the `10`–`15` templates in
-`assets/nosograph_cypher_templates.csv`.
+pipeline writes them per assembly run to `<outdir>/<sample_id>/assembly/<run_name>/kg/`
+(`sample.csv`, `assembly.csv`, `biodata_files.csv`, `contigs.csv`) via `report/kg_export.py`.
+Copy that `kg/` directory into the Neo4j import directory, at the same
+`<sample_id>/assembly/<run_name>/kg/` path, next to these clinical CSVs and load it with the
+`10`–`15` templates in `assets/nosograph_cypher_templates.csv`.

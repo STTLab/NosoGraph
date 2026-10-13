@@ -111,7 +111,7 @@ CALL (rec) {
   MATCH (ab:Antibiotic {antibiotic_id: rec.antibiotic_id})
   MERGE (lr)-[:AGAINST]->(ab)
 } IN TRANSACTIONS OF 500 ROWS;",14,2,false
-10 Sample (pipeline),Replace <sample_id>. Pipeline-produced CSV at <import>/<sample_id>/kg/.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/sample.csv' AS rec
+10 Sample (pipeline),Replace <sample_id> and <run_name> (the assembly run's folder; default: the assembler). Pipeline-produced CSV at <import>/<sample_id>/assembly/<run_name>/kg/. Repeat steps 10-15 per run to load several assemblies of one sample.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/assembly/<run_name>/kg/sample.csv' AS rec
 CALL (rec) { MERGE (s:Sample {sample_id: rec.sample_id}) } IN TRANSACTIONS OF 500 ROWS;",15,2,false
 11 Sample -> Specimen link,"Sample -[:DERIVED_FROM]-> Specimen (clinical<->genomic bridge, hand-authored).","LOAD CSV WITH HEADERS FROM 'file:///Samples.csv' AS rec
 CALL (rec) {
@@ -120,7 +120,7 @@ CALL (rec) {
   MATCH (sp:Specimen {specimen_id: rec.specimen_id})
   MERGE (s)-[:DERIVED_FROM]->(sp)
 } IN TRANSACTIONS OF 500 ROWS;",16,2,false
-12 Assembly (pipeline),Replace <sample_id>. Sample -[:HAS_ASSEMBLY]-> Assembly (+ CheckM2 quality).,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/assembly.csv' AS rec
+12 Assembly (pipeline),Replace <sample_id> and <run_name>. Sample -[:HAS_ASSEMBLY]-> Assembly (+ CheckM2 quality).,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/assembly/<run_name>/kg/assembly.csv' AS rec
 CALL (rec) {
   MERGE (a:Assembly {assembly_id: rec.assembly_id})
   SET a.assembler = rec.assembler,
@@ -131,7 +131,7 @@ CALL (rec) {
   MATCH (s:Sample {sample_id: rec.sample_id})
   MERGE (s)-[:HAS_ASSEMBLY]->(a)
 } IN TRANSACTIONS OF 500 ROWS;",17,2,false
-13 BioDataFile FASTA (pipeline),Replace <sample_id>. Assembly -[:PRODUCE]-> BioDataFile{FASTA}.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/biodata_files.csv' AS rec
+13 BioDataFile FASTA (pipeline),Replace <sample_id> and <run_name>. Assembly -[:PRODUCE]-> BioDataFile{FASTA}.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/assembly/<run_name>/kg/biodata_files.csv' AS rec
 WITH rec WHERE rec.file_type = 'FASTA' AND rec.assembly_id IS NOT NULL AND rec.assembly_id <> ''
 CALL (rec) {
   MERGE (f:BioDataFile {uri: rec.uri})
@@ -140,16 +140,16 @@ CALL (rec) {
   MATCH (a:Assembly {assembly_id: rec.assembly_id})
   MERGE (a)-[:PRODUCE]->(f)
 } IN TRANSACTIONS OF 500 ROWS;",18,2,false
-14 BioDataFile FASTQ (pipeline),Replace <sample_id>. Assembly -[:ASSEMBLED_FROM]-> BioDataFile{FASTQ}.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/biodata_files.csv' AS rec
+14 BioDataFile FASTQ (pipeline),Replace <sample_id> and <run_name>. Assembly -[:ASSEMBLED_FROM]-> BioDataFile{FASTQ}.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/assembly/<run_name>/kg/biodata_files.csv' AS rec
 WITH rec WHERE rec.file_type = 'FASTQ'
 CALL (rec) {
   MERGE (f:BioDataFile {uri: rec.uri})
   SET f.file_type = rec.file_type, f.compressed = toBoolean(rec.compressed)
   WITH f, rec
-  MATCH (s:Sample {sample_id: rec.sample_id})-[:HAS_ASSEMBLY]->(a:Assembly)
+  MATCH (a:Assembly {assembly_id: rec.assembly_id})
   MERGE (a)-[:ASSEMBLED_FROM]->(f)
 } IN TRANSACTIONS OF 500 ROWS;",19,2,false
-15 Contigs (pipeline),Replace <sample_id>. BioDataFile{FASTA} -[:HAS_CONTIG]-> Contig.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/contigs.csv' AS rec
+15 Contigs (pipeline),Replace <sample_id> and <run_name>. BioDataFile{FASTA} -[:HAS_CONTIG]-> Contig.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/assembly/<run_name>/kg/contigs.csv' AS rec
 CALL (rec) {
   MERGE (c:Contig {contig_id: rec.contig_id})
   SET c.name = rec.name, c.accession = rec.accession,
@@ -185,7 +185,7 @@ CALL (rec, hgvs_c, hgvs_p) {
   MERGE (rg)-[:HAS_FEATURE]->(f)
   MERGE (v)-[:AFFECTS]->(f)
 } IN TRANSACTIONS OF 500 ROWS;",21,2,false
-17 Taxonomic Classification (pipeline),"Replace <sample_id>. (:ProcessRun:TaxonomicClassification), linked only to the reads it consumed (step 18) - no Sample edge (BioDataFile provenance rule); tc.sample_id is the per-sample anchor. Identified taxa ride along as the tc.taxa_json QC blob (untrusted per-run classification, not modelled as Organism nodes).","LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/taxonomic_classification.csv' AS rec
+17 Taxonomic Classification (pipeline),"Replace <sample_id>. (:ProcessRun:TaxonomicClassification), linked only to the reads it consumed (step 18) - no Sample edge (BioDataFile provenance rule); tc.sample_id is the per-sample anchor. Identified taxa ride along as the tc.taxa_json QC blob (untrusted per-run classification, not modelled as Organism nodes).","LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kraken2/kg/taxonomic_classification.csv' AS rec
 CALL (rec) {
   MERGE (tc:ProcessRun:TaxonomicClassification {process_run_id: rec.process_run_id})
     ON CREATE SET tc.process = 'taxonomic_classification',
@@ -196,7 +196,7 @@ CALL (rec) {
       tc.unclassified_reads = CASE WHEN rec.unclassified_reads <> '' THEN toInteger(rec.unclassified_reads) ELSE NULL END,
       tc.taxa_json = rec.taxa_json
 } IN TRANSACTIONS OF 500 ROWS;",29,2,false
-18 BioDataFile FASTQ (kraken2-classify),Replace <sample_id>. TaxonomicClassification -[:CLASSIFIED_FROM]-> BioDataFile{FASTQ}. Rows are header-only when the run was launched without input reads.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kg/kraken2_reads.csv' AS rec
+18 BioDataFile FASTQ (kraken2-classify),Replace <sample_id>. TaxonomicClassification -[:CLASSIFIED_FROM]-> BioDataFile{FASTQ}. Rows are header-only when the run was launched without input reads.,"LOAD CSV WITH HEADERS FROM 'file:///<sample_id>/kraken2/kg/kraken2_reads.csv' AS rec
 WITH rec WHERE rec.file_type = 'FASTQ' AND rec.uri IS NOT NULL AND rec.uri <> ''
 CALL (rec) {
   MERGE (f:BioDataFile {uri: rec.uri})

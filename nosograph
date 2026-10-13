@@ -71,12 +71,18 @@ Everything else goes to `nextflow run` unchanged. Nextflow's own options take ON
 Defaults from .env (e.g. checkm2_db, blast_db) are added unless you pass them; use
 e.g. --checkm2_db false to skip a database for one run.
 
+Each run writes to <outdir>/<sample_id>/assembly/<run_name>/, where --run_name defaults
+to the assembler, so several assemblers can run on one sample into the same --outdir.
+Set --run_name to keep two runs of the same assembler.
+
 Examples:
   nosograph assembly flye -profile micromamba \
       --sample_id S01 --long_reads reads.fastq.gz --outdir results --threads 16
   nosograph assembly unicycler -profile micromamba \
       --sample_id S02 --long_reads long.fq.gz --read1 R1.fq.gz --read2 R2.fq.gz
   nosograph assembly autocycler,canu,flye -profile micromamba -resume \
+      --sample_id S03 --long_reads reads.fastq.gz --outdir results --threads 24
+  nosograph assembly autocycler,canu,raven --run_name autocycler_canu -profile micromamba \
       --sample_id S03 --long_reads reads.fastq.gz --outdir results --threads 24
 EOF
 }
