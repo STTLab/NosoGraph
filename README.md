@@ -96,7 +96,7 @@ with `nextflow run` directly.
 | Parameter | Description | Default |
 |---|---|---|
 | `--pipeline` | Pipeline to run: `bacterial-assembly`, `autocycler`, or `kraken2-classify` | `bacterial-assembly` |
-| `--sample_id` | Sample identifier; scopes outputs to `<outdir>/<sample_id>/` and namespaces contig IDs | required |
+| `--sample_id` | Sample identifier; every output goes under `<outdir>/<sample_id>/`, and contig IDs are namespaced with it | required |
 | `--long_reads` | Long-read FASTQ (gzipped or uncompressed) | required |
 | `--kraken2_db` | Kraken2 DB directory with `hash.k2d`/`opts.k2d`/`taxo.k2d` (required for `--pipeline kraken2-classify`) | — |
 | `--kraken2_mem` | Memory request for Kraken2 (≈ DB size; raise for the full Standard DB) | `64 GB` |
@@ -141,9 +141,12 @@ Hybrid assembly with Flye:
     --checkm2_db /path/to/uniref100.KO.1.dmnd
 ```
 
-This writes the assembly under `results/01_assembly/` and a knowledge-graph CSV bundle to
-`results/sample_01/kg/` (`sample.csv`, `assembly.csv`, `biodata_files.csv`, `contigs.csv`) ready for
-import into Neo4j (see [NosoGraph knowledge graph](#nosograph-knowledge-graph)).
+Every output goes under `results/<sample_id>/`, so several samples can share one `--outdir`.
+This run writes the assembly to `results/sample_01/01_assembly/`, the polished assemblies to
+`results/sample_01/02_polish/`, CheckM2 to `results/sample_01/checkm2_results/`, and a
+knowledge-graph CSV bundle to `results/sample_01/kg/` (`sample.csv`, `assembly.csv`,
+`biodata_files.csv`, `contigs.csv`) ready for import into Neo4j (see
+[NosoGraph knowledge graph](#nosograph-knowledge-graph)).
 
 Long-read-only assembly with Canu:
 
@@ -182,15 +185,15 @@ Multi-assembler consensus with [Autocycler](https://github.com/rrwick/Autocycler
     --sample_id sample_03 \
     --long_reads reads.fastq.gz \
     --genome_size 5m \
-    --outdir results/sample_03 \
+    --outdir results \
     --threads 16 \
     --checkm2_db /path/to/uniref100.KO.1.dmnd
 ```
 
 QUAST always runs on the consensus; CheckM2 and BLAST run only when `--checkm2_db` /
-`--blast_db` are given. The `kg/` bundle goes to `results/sample_03/sample_03/kg/`, with
-`Assembly.assembler = autocycler` and contig circularity taken from Autocycler's FASTA
-headers. Use one `--outdir` per sample. See the
+`--blast_db` are given. Outputs go to `results/sample_03/` (consensus in
+`01_assembly/autocycler_out/`, QC reports, and `kg/`), with `Assembly.assembler = autocycler`
+and contig circularity taken from Autocycler's FASTA headers. See the
 [Autocycler Tutorial](https://github.com/STTLab/NosoGraph/wiki/Autocycler-Tutorial).
 
 ---
@@ -211,7 +214,7 @@ nextflow run main.nf \
     --outdir results
 ```
 
-It reads the per-sample Kraken2 report (`kraken2/<sample_id>.kraken2.report.txt`, filtered to
+It reads the per-sample Kraken2 report (`results/sample_meta/kraken2/sample_meta.kraken2.report.txt`, filtered to
 species + genus) and writes a knowledge-graph CSV bundle to
 `results/sample_meta/kg/` (`taxonomic_classification.csv`, `meta_reads.csv`). The input
 FASTQ given to `--long_reads` is also recorded as a `BioDataFile` node. The resulting subgraph

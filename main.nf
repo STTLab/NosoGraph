@@ -13,7 +13,8 @@ include { KG_EXPORT }          from './modules/local/kg_export.nf'
 include { META_KG_EXPORT }     from './modules/local/meta_kg_export.nf'
 
 // One sample per invocation (STTLab monolithic model). Select the pipeline with
-// --pipeline; every path exports a per-sample knowledge graph to <outdir>/<sample_id>/kg/.
+// --pipeline. Every output, including the knowledge graph in kg/, is published under
+// <outdir>/<sample_id>/ (see conf/publish.config).
 //   nextflow run main.nf --pipeline bacterial-assembly --sample_id S01 \
 //       --long_reads reads.fastq.gz --assembler flye --tech nanopore ...   (canu | flye | unicycler)
 //   nextflow run main.nf --pipeline autocycler --sample_id S01 \
@@ -106,7 +107,7 @@ workflow {
         // Only for Flye runs, so a stale assembly_info.txt left in --outdir by an
         // earlier Flye run is never attached to a Canu or Unicycler assembly.
         flye_info_v = assembly_v.map { fa ->
-            def info = file("${params.outdir}/01_assembly/assembly_info.txt")
+            def info = file("${params.outdir}/${params.sample_id}/01_assembly/assembly_info.txt")
             (params.assembler == 'flye' && info.exists()) ? info : no_flye_info
         }
 
