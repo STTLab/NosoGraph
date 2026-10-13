@@ -37,6 +37,12 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
   is stored as a boolean. ([#19](https://github.com/STTLab/NosoGraph/pull/19))
 
 ### Changed
+- **All outputs now go under `<outdir>/<sample_id>/`.** Assemblies, polishing, QC,
+  BLAST and Kraken2 results used to be written straight into `--outdir`, with only `kg/`
+  under `<sample_id>/`; now everything sits beside `kg/`, e.g.
+  `results/S01/01_assembly/`. Several samples can share one `--outdir`. Scripts that read
+  `<outdir>/01_assembly/…` and similar paths need `<sample_id>/` added. The vendored
+  modules are unchanged: `conf/publish.config` re-points their `publishDir`.
 - **`--sample_id` is now required for `--pipeline autocycler`** (it names the QC
   and `kg/` outputs). Existing Autocycler commands need it added.
 - **Branch model:** `feat/…` / `fix/…` branches merge into `develop`; `develop`
