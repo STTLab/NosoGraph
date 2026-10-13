@@ -14,6 +14,11 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
 > migrate them.
 
 ### Added
+- **`--run_name`** names an assembly run's folder, `<outdir>/<sample_id>/assembly/<run_name>/`,
+  and its assembly and contig IDs. It defaults to the assembler (`flye`, `canu`,
+  `unicycler`, `autocycler`), so runs of different assemblers on one sample sit side by
+  side for comparison; set it to keep two runs of the same assembler, e.g.
+  `--run_name autocycler_canu`. Kraken2 runs don't use it.
 - **`nosograph` command** at the repo root: `nosograph assembly <assembler> ...` picks the
   pipeline from the assembler (`canu` / `flye` / `unicycler` → `bacterial-assembly`;
   `autocycler[,<assemblers>]` → `autocycler`) and passes everything else to `nextflow run`.
@@ -25,7 +30,7 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
 - **QC and knowledge-graph export for `--pipeline autocycler`.** QUAST always runs
   on the consensus assembly; CheckM2 and BLAST run when `--checkm2_db` /
   `--blast_db` are given (the `assembly-qc-iden` processes, unchanged). The run now
-  writes `<outdir>/<sample_id>/kg/` with `Assembly.assembler = autocycler`, and
+  writes `<outdir>/<sample_id>/assembly/autocycler/kg/` with `Assembly.assembler = autocycler`, and
   `Contig.is_circular` is read from Autocycler's `circular=` FASTA header tags.
 - **Unicycler assembler** for `--pipeline bacterial-assembly` (`--assembler unicycler`,
   from the vendored module bump in [#21](https://github.com/STTLab/NosoGraph/pull/21)):
@@ -46,17 +51,27 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
   is stored as a boolean. ([#19](https://github.com/STTLab/NosoGraph/pull/19))
 
 ### Changed
-- **All outputs now go under `<outdir>/<sample_id>/`.** Assemblies, polishing, QC,
-  BLAST and Kraken2 results used to be written straight into `--outdir`, with only `kg/`
-  under `<sample_id>/`; now everything sits beside `kg/`, e.g.
-  `results/S01/01_assembly/`. Several samples can share one `--outdir`. Scripts that read
-  `<outdir>/01_assembly/…` and similar paths need `<sample_id>/` added. The vendored
-  modules are unchanged: `conf/publish.config` re-points their `publishDir`.
+- **All outputs now go under `<outdir>/<sample_id>/`, one folder per run.** Assemblies,
+  polishing, QC, BLAST and Kraken2 results used to be written straight into `--outdir`,
+  with only `kg/` under `<sample_id>/`. Now an assembly run, with its polishing, QC, BLAST
+  and `kg/`, goes under `<sample_id>/assembly/<run_name>/` (e.g.
+  `results/S01/assembly/flye/01_assembly/`), and a Kraken2 run, with its `kg/`, under
+  `<sample_id>/kraken2/`. Several samples, and several assemblies of one sample, can share
+  one `--outdir`. Scripts that read `<outdir>/01_assembly/…` or `<outdir>/<sample_id>/kg/`
+  need the new paths. The vendored modules are unchanged: `conf/publish.config` re-points
+  their `publishDir`.
+- **Assembly and contig IDs carry the run name** so assemblies of one sample stay apart in
+  the graph: `Assembly.assembly_id` is `<sample_id>_<run_name>` (was
+  `<sample_id>_assembly`) and `Contig.contig_id` is `<sample_id>:<run_name>:<contig>` (was
+  `<sample_id>:<contig>`). The input FASTQ row in `biodata_files.csv` now carries its
+  `assembly_id`, and LOAD DATA step 14 links the reads to that assembly only. LOAD DATA
+  steps 10–15 read `file:///<sample_id>/assembly/<run_name>/kg/…` and steps 17–18
+  `file:///<sample_id>/kraken2/kg/…`. Re-export and reload graphs built from earlier runs.
 - **The Kraken2 pipeline is described as read identity estimation and contaminant
   screening** in the README, wiki, help text and code comments, and its saved query is
   renamed **Read identity per sample (Kraken2)**.
 - **Kraken2 KG file renamed: `meta_reads.csv` → `kraken2_reads.csv`** (in
-  `<outdir>/<sample_id>/kg/`), and LOAD DATA step 18 now reads the new name. Re-export, or
+  `<outdir>/<sample_id>/kraken2/kg/`), and LOAD DATA step 18 now reads the new name. Re-export, or
   rename the file, before loading Kraken2 outputs from earlier runs with the new templates.
   The exporter is now `report/kraken2_kg_export.py` (process `KRAKEN2_KG_EXPORT`).
 - **`--sample_id` is now required for `--pipeline autocycler`** (it names the QC

@@ -13,8 +13,10 @@ include { KG_EXPORT }          from './modules/local/kg_export.nf'
 include { KRAKEN2_KG_EXPORT }  from './modules/local/kraken2_kg_export.nf'
 
 // One sample per invocation (STTLab monolithic model). Select the pipeline with
-// --pipeline. Every output, including the knowledge graph in kg/, is published under
-// <outdir>/<sample_id>/ (see conf/publish.config).
+// --pipeline. Every output is published under <outdir>/<sample_id>/ (see conf/publish.config):
+// an assembly run, with its QC and knowledge graph (kg/), under assembly/<run_name>/
+// (--run_name, default: the assembler), so assemblies of one sample can be compared side by
+// side; a Kraken2 run, with its kg/, under kraken2/.
 //   nextflow run main.nf --pipeline bacterial-assembly --sample_id S01 \
 //       --long_reads reads.fastq.gz --assembler flye --tech nanopore ...   (canu | flye | unicycler)
 //   nextflow run main.nf --pipeline autocycler --sample_id S01 \
@@ -24,6 +26,12 @@ include { KRAKEN2_KG_EXPORT }  from './modules/local/kraken2_kg_export.nf'
 // Post-assembly QC for the autocycler path, grouped so its tasks show as ASSEMBLY_QC:<step>.
 // QUAST always runs; CheckM2 and BLAST run only when their DB is supplied, and otherwise
 // emit the same sentinels KG_EXPORT gets on the bacterial-assembly path.
+// --run_name becomes a folder name and part of the assembly and contig IDs.
+def checkRunName() {
+    if (!(params.run_name ==~ /[A-Za-z0-9._-]+/))
+        error "Invalid --run_name '${params.run_name}'. Use letters, digits, '.', '_' or '-'"
+}
+
 workflow ASSEMBLY_QC {
     take:
         assembly
@@ -48,6 +56,7 @@ workflow {
     if (params.pipeline == 'autocycler') {
         if (!params.sample_id)  error "Missing required param: --sample_id"
         if (!params.long_reads) error "Missing required param: --long_reads"
+        checkRunName()
 
         // --- Multi-assembler consensus (vendored, untouched) ---
         assembly_v = AUTOCYCLER(channel.fromPath(params.long_reads, checkIfExists: false))
@@ -71,6 +80,7 @@ workflow {
         if (!params.assembler)  error "Missing required param: --assembler (canu | flye | unicycler)"
         if (!(params.assembler in ['canu', 'flye', 'unicycler']))
             error "Unknown --assembler '${params.assembler}'. Use: canu, flye, unicycler"
+        checkRunName()
         // NB: never fires in practice — the vendored assembly-qc-iden config defaults
         // params.tech to 'nanopore', so --tech is effectively optional (nanopore).
         if (!params.tech)       error "Missing required param: --tech (nanopore | nanopore-hq | pacbio)"
@@ -104,10 +114,10 @@ workflow {
         no_blast_iden = file("${projectDir}/assets/NO_BLAST_IDEN")
 
         assembly_v  = BACTERIAL_ASSEMBLY.out.assembly.first()
-        // Only for Flye runs, so a stale assembly_info.txt left in --outdir by an
-        // earlier Flye run is never attached to a Canu or Unicycler assembly.
+        // Only for Flye runs, so a stale assembly_info.txt left in the run folder by an
+        // earlier Flye run (same --run_name) is never attached to a Canu or Unicycler assembly.
         flye_info_v = assembly_v.map { fa ->
-            def info = file("${params.outdir}/${params.sample_id}/01_assembly/assembly_info.txt")
+            def info = file("${params.outdir}/${params.sample_id}/assembly/${params.run_name}/01_assembly/assembly_info.txt")
             (params.assembler == 'flye' && info.exists()) ? info : no_flye_info
         }
 

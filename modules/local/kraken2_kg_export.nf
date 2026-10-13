@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: MPL-2.0
  *
  * NosoGraph-owned (not vendored) process: export one sample's Kraken2 read-identity
- * and contaminant-screen outputs to Neo4j-ready CSVs under <outdir>/<sample_id>/kg/, matching
+ * and contaminant-screen outputs to Neo4j-ready CSVs under <outdir>/<sample_id>/kraken2/kg/, matching
  * the migrated `nosograph` graph schema (taxonomic-classification public extension).
  * Consumes a Kraken2 report. The input FASTQ is sourced from params.long_reads when set
  * (for the BioDataFile node). Identified taxa ride along as a `taxa_json` QC blob on the
@@ -20,7 +20,7 @@ process KRAKEN2_KG_EXPORT {
     // runs in the small envs/kg_export.yaml env; with conda disabled (singularity/test) it
     // has no container and runs on the host Python (pip install -r requirements.txt).
     conda "${projectDir}/envs/kg_export.yaml"
-    publishDir "${params.outdir}/${params.sample_id}", mode: 'copy'
+    publishDir "${params.outdir}/${params.sample_id}/kraken2", mode: 'copy'
 
     input:
     kraken2_report: Path

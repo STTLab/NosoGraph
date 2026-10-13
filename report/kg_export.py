@@ -17,8 +17,11 @@ Emitted (under ``<outdir>/kg/``):
                         FASTA header's ``circular=`` tag for Autocycler; accession from
                         the assembly-qc-iden BLAST identification table when present)
 
-Contig IDs are namespaced ``{sample_id}:{contig_name}`` so they are globally unique
-across samples (Flye restarts numbering from contig_1 every run). Per STTLab
+The Assembly ID is ``{sample_id}_{run}`` and Contig IDs are namespaced
+``{sample_id}:{run}:{contig_name}``, where ``run`` is the run name (default: the assembler).
+That keeps them globally unique across samples (Flye restarts numbering from contig_1 every
+run) and across several assemblies of one sample (Unicycler and Autocycler both name contigs
+1, 2, ...). Per STTLab
 conventions: booleans are lowercase ``true``/``false``; empty values are ``""``;
 file identity uses SHA-256; the Contig sequence hash uses md5 (matching the lib).
 """
@@ -117,9 +120,9 @@ def _read_header_circularity(fasta) -> dict:
     return circular
 
 
-def export_assembly_and_contigs(kg_dir, sample_id, assembler, fasta, flye_info, checkm2,
+def export_assembly_and_contigs(kg_dir, sample_id, run, assembler, fasta, flye_info, checkm2,
                                 blast_iden=None):
-    assembly_id = f"{sample_id}_assembly"
+    assembly_id = f"{sample_id}_{run}"
     created_at = datetime.now(timezone.utc).date().isoformat()
     completeness, contamination = _read_checkm2(checkm2)
 
@@ -147,7 +150,7 @@ def export_assembly_and_contigs(kg_dir, sample_id, assembler, fasta, flye_info, 
         if is_circular is None:
             is_circular = header_circular.get(name)
         contig_rows.append({
-            "contig_id":          f"{sample_id}:{name}",
+            "contig_id":          f"{sample_id}:{run}:{name}",
             "assembly_id":        assembly_id,
             "name":               name,
             # BLAST best-hit accession from assembly-qc-iden (§7.3); "" when no DB ran
@@ -183,7 +186,7 @@ def export_biodata_files(kg_dir, sample_id, assembly_id, fastq, fasta):
             "file_type":   "FASTQ",
             "compressed":  "true" if fastq.suffix in (".gz", ".bz2") else "false",
             "sha256":      "",
-            "assembly_id": "",
+            "assembly_id": assembly_id,
             "sample_id":   sample_id,
         },
         {  # consensus assembly — PRODUCE
@@ -205,7 +208,10 @@ def export_biodata_files(kg_dir, sample_id, assembly_id, fastq, fasta):
 def main():
     p = argparse.ArgumentParser(description="Export NosoGraph per-sample outputs to Neo4j CSVs")
     p.add_argument("--sample", required=True, help="Sample ID")
-    p.add_argument("--assembler", required=True, help="Assembler used (flye | canu | autocycler)")
+    p.add_argument("--assembler", required=True,
+                   help="Assembler used (canu | flye | unicycler | autocycler)")
+    p.add_argument("--run", default="",
+                   help="Run name; namespaces the assembly and contig IDs (default: --assembler)")
     p.add_argument("--fasta", required=True, help="Final consensus/polished assembly FASTA")
     p.add_argument("--fastq", required=True, help="Input long-read FASTQ")
     p.add_argument("--flye-info", default="", help="Flye assembly_info.txt (optional)")
@@ -224,7 +230,7 @@ def main():
 
     export_sample(kg_dir, args.sample)
     assembly_id = export_assembly_and_contigs(
-        kg_dir, args.sample, args.assembler, args.fasta, flye_info, checkm2, blast_iden
+        kg_dir, args.sample, args.run or args.assembler, args.assembler, args.fasta, flye_info, checkm2, blast_iden
     )
     export_biodata_files(kg_dir, args.sample, assembly_id, args.fastq, args.fasta)
 

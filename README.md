@@ -112,6 +112,7 @@ does not.
 |---|---|---|
 | `--pipeline` | Pipeline to run: `bacterial-assembly`, `autocycler`, or `kraken2-classify` | `bacterial-assembly` |
 | `--sample_id` | Sample identifier; every output goes under `<outdir>/<sample_id>/`, and contig IDs are namespaced with it | required |
+| `--run_name` | Assembly runs: names the run's folder, `<outdir>/<sample_id>/assembly/<run_name>/`, and its assembly and contig IDs. Set it to keep two runs of the same assembler | the assembler |
 | `--long_reads` | Long-read FASTQ (gzipped or uncompressed) | required |
 | `--kraken2_db` | Kraken2 DB directory with `hash.k2d`/`opts.k2d`/`taxo.k2d` (required for `--pipeline kraken2-classify`) | — |
 | `--kraken2_mem` | Memory request for Kraken2 (≈ DB size; raise for the full Standard DB) | `64 GB` |
@@ -157,9 +158,10 @@ Hybrid assembly with Flye:
 ```
 
 Every output goes under `results/<sample_id>/`, so several samples can share one `--outdir`.
-This run writes the assembly to `results/sample_01/01_assembly/`, the polished assemblies to
-`results/sample_01/02_polish/`, CheckM2 to `results/sample_01/checkm2_results/`, and a
-knowledge-graph CSV bundle to `results/sample_01/kg/` (`sample.csv`, `assembly.csv`,
+An assembly run gets its own folder, `results/<sample_id>/assembly/<run_name>/`, named after
+the assembler unless you set `--run_name`. This run writes to `results/sample_01/assembly/flye/`:
+the assembly in `01_assembly/`, the polished assemblies in `02_polish/`, CheckM2 in
+`checkm2_results/`, and a knowledge-graph CSV bundle in `kg/` (`sample.csv`, `assembly.csv`,
 `biodata_files.csv`, `contigs.csv`) ready for import into Neo4j (see
 [NosoGraph knowledge graph](#nosograph-knowledge-graph)).
 
@@ -206,10 +208,23 @@ Multi-assembler consensus with [Autocycler](https://github.com/rrwick/Autocycler
 ```
 
 QUAST always runs on the consensus; CheckM2 and BLAST run only when `--checkm2_db` /
-`--blast_db` are given. Outputs go to `results/sample_03/` (consensus in
+`--blast_db` are given. Outputs go to `results/sample_03/assembly/autocycler/` (consensus in
 `01_assembly/autocycler_out/`, QC reports, and `kg/`), with `Assembly.assembler = autocycler`
 and contig circularity taken from Autocycler's FASTA headers. See the
 [Autocycler Tutorial](https://github.com/STTLab/NosoGraph/wiki/Autocycler-Tutorial).
+
+Comparing assemblers on one sample: run each into the same `--outdir`, and each lands in its
+own folder.
+
+```bash
+./nosograph assembly unicycler  --sample_id sample_05 --long_reads reads.fastq.gz --outdir results
+./nosograph assembly autocycler --sample_id sample_05 --long_reads reads.fastq.gz --outdir results
+# -> results/sample_05/assembly/unicycler/  and  results/sample_05/assembly/autocycler/
+```
+
+Their graph IDs differ too (`sample_05_unicycler` / `sample_05_autocycler`, contigs
+`sample_05:unicycler:1`, …), so both can be loaded into Neo4j. Two runs of the same
+assembler need different names, e.g. `./nosograph assembly autocycler,canu,flye --run_name autocycler_canu ...`.
 
 ---
 
@@ -219,7 +234,7 @@ The `kraken2-classify` pipeline classifies a sample's long reads against a pre-b
 database, to estimate what the reads are and to screen for contaminants, and records the
 result in the knowledge graph — in a **single** Nextflow run. The vendored
 [`kraken2-classify`](modules/vendor/kraken2-classify/) module produces the Kraken2 report,
-which is exported to the `kg/` CSVs.
+which is exported to the `kraken2/kg/` CSVs.
 
 ```bash
 ./nosograph kraken2-classify \
@@ -231,7 +246,7 @@ which is exported to the `kg/` CSVs.
 
 It reads the per-sample Kraken2 report (`results/sample_k2/kraken2/sample_k2.kraken2.report.txt`, filtered to
 species + genus) and writes a knowledge-graph CSV bundle to
-`results/sample_k2/kg/` (`taxonomic_classification.csv`, `kraken2_reads.csv`). The input
+`results/sample_k2/kraken2/kg/` (`taxonomic_classification.csv`, `kraken2_reads.csv`). The input
 FASTQ given to `--long_reads` is also recorded as a `BioDataFile` node. The resulting subgraph
 (built on the generic `ProcessRun` pattern) is:
 
@@ -331,7 +346,7 @@ This repository provides:
 - A conceptual schema defining node labels, relationship types, and data domains
 - Example CSV files for data import ([`example/csv/`](./example/csv))
 - A single importable loader artefact — [`assets/nosograph_cypher_templates.csv`](./assets/nosograph_cypher_templates.csv) — a Neo4j Browser saved-queries file with the constraints, idempotent `LOAD CSV` import queries, and example analytical queries
-- Per-sample knowledge-graph exporters that the pipelines run to write `kg/` CSVs to `<outdir>/<sample_id>/kg/` — `report/kg_export.py` (bacterial assembly) and `report/kraken2_kg_export.py` (Kraken2 read identity and contaminant screening)
+- Per-sample knowledge-graph exporters that the pipelines run to write `kg/` CSVs next to the outputs they describe — `report/kg_export.py` (assembly, to `<outdir>/<sample_id>/assembly/<run_name>/kg/`) and `report/kraken2_kg_export.py` (Kraken2 read identity and contaminant screening, to `<outdir>/<sample_id>/kraken2/kg/`)
 - Guidance for setting up Neo4j as a working environment
 
 Users can adopt the schema as a starting point, extend it to fit their specific use cases, and integrate it with custom pipelines or applications as needed.
@@ -375,8 +390,10 @@ Copy both sources into that import directory:
 1. The hand-authored clinical CSVs from [`example/csv/`](./example/csv) (`Departments.csv`, `Wards.csv`,
    `Patients.csv`, `Admissions.csv`, `Antibiotic.csv`, `Specimens.csv`, `Samples.csv`, `Organisms.csv`,
    `ReferenceGenomes.csv`, `LabResults.csv`, `SNPs.csv`) — copy them to the import-directory **root**.
-2. For each sequenced sample, the pipeline-produced `kg/` directory from
-   `<outdir>/<sample_id>/kg/` — copy it so it sits at `<import>/<sample_id>/kg/`.
+2. For each sequenced sample, the pipeline-produced `kg/` directories — copy
+   `<outdir>/<sample_id>/assembly/<run_name>/kg/` so it sits at
+   `<import>/<sample_id>/assembly/<run_name>/kg/`, and `<outdir>/<sample_id>/kraken2/kg/` to
+   `<import>/<sample_id>/kraken2/kg/`. Copying the whole `<outdir>/<sample_id>/` folder works too.
 
 #### 4. Load with the bundled Cypher templates
 
@@ -387,9 +404,10 @@ This repository ships no programmatic loader — the only loader artefact is the
    `assets/nosograph_cypher_templates.csv`. The queries appear under a **NosoGraph** folder
    (`SETUP` / `LOAD DATA` / `QUERIES` / `UTILITIES`).
 2. Run **SETUP → Create Constraints** once.
-3. Run the **LOAD DATA** queries in order. For the per-sample genomic loads (`10`–`15`,
-   and `17`–`18` for Kraken2 samples), replace `<sample_id>` in the
-   `file:///<sample_id>/kg/...` paths with your actual sample id.
+3. Run the **LOAD DATA** queries in order. For the per-sample assembly loads (`10`–`15`),
+   replace `<sample_id>` and `<run_name>` in the `file:///<sample_id>/assembly/<run_name>/kg/...`
+   paths; repeat them for each assembly run you want in the graph. For Kraken2 samples
+   (`17`–`18`), replace `<sample_id>` in `file:///<sample_id>/kraken2/kg/...`.
 4. Each load is idempotent (`MERGE`, `IN TRANSACTIONS OF 500 ROWS`), so re-running is safe.
 
 The node labels, properties, and relationships these templates create match the canonical NosoGraph

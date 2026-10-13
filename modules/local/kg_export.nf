@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: MPL-2.0
  *
  * NosoGraph-owned (not vendored) process: export one sample's assembly outputs to
- * Neo4j-ready CSVs under <outdir>/<sample_id>/kg/, matching the migrated `nosograph`
+ * Neo4j-ready CSVs under <outdir>/<sample_id>/assembly/<run_name>/kg/, matching the migrated `nosograph`
  * graph schema. Consumes the final assembly FASTA plus, when available, Flye's
  * assembly_info.txt, the CheckM2 results directory, and the assembly-qc-iden BLAST
  * identification table (populates Contig.accession). Missing optional inputs are passed
@@ -18,7 +18,7 @@ process KG_EXPORT {
     // runs in the small envs/kg_export.yaml env; with conda disabled (singularity/test) it
     // has no container and runs on the host Python (pip install -r requirements.txt).
     conda "${projectDir}/envs/kg_export.yaml"
-    publishDir "${params.outdir}/${params.sample_id}", mode: 'copy'
+    publishDir "${params.outdir}/${params.sample_id}/assembly/${params.run_name}", mode: 'copy'
 
     input:
     assembly_fasta: Path
@@ -44,6 +44,7 @@ process KG_EXPORT {
     python3 ${projectDir}/report/kg_export.py \\
         --sample    ${params.sample_id} \\
         --assembler ${assembler} \\
+        --run       ${params.run_name} \\
         --fasta     ${assembly_fasta} \\
         --fastq     ${fastq_abs} \\
         ${info_arg} \\
