@@ -7,8 +7,11 @@
 #
 #   nosograph assembly flye      --sample_id S01 --long_reads reads.fq.gz ...
 #   nosograph assembly autocycler,canu,flye --sample_id S01 --long_reads reads.fq.gz ...
+#   nosograph kraken2-classify   --sample_id S01 --long_reads reads.fq.gz ...
 #
-# Set NEXTFLOW to use a specific nextflow binary (default: `nextflow` on PATH).
+# Installation defaults (e.g. database paths) can go in a .env file next to this script;
+# see .env.example. Set NEXTFLOW to use a specific nextflow binary (default: `nextflow`
+# on PATH) and NOSOGRAPH_ENV to read a different defaults file.
 
 set -euo pipefail
 
@@ -22,8 +25,11 @@ while [ -L "$src" ]; do
 done
 PROJECT_DIR="$(cd -P "$(dirname "$src")" && pwd)"
 NEXTFLOW="${NEXTFLOW:-nextflow}"
+ENV_FILE="${NOSOGRAPH_ENV:-$PROJECT_DIR/.env}"
 
 BACTERIAL_ASSEMBLERS="canu flye unicycler"
+# Parameters the subcommands set themselves; refused on the command line and in .env.
+ROUTING_PARAMS="pipeline assembler assemblers"
 
 usage() {
     cat <<'EOF'
@@ -31,12 +37,17 @@ Usage: nosograph <command> [arguments]
 
 Commands:
   assembly <assembler>   Assemble one sample (see `nosograph assembly --help`)
+  kraken2-classify       Estimate read identity and screen for contaminants with Kraken2
+                         (see `nosograph kraken2-classify --help`)
 
 Options:
   -h, --help             Show this help
 
 Any other options are passed straight to `nextflow run`, e.g. -profile, -resume,
 -c my.config, --sample_id, --long_reads, --outdir, --threads.
+
+Installation defaults such as database paths can be set in a .env file next to the
+nosograph script (see .env.example); options on the command line override them.
 EOF
 }
 
@@ -57,6 +68,8 @@ Wrapper options:
 
 Everything else goes to `nextflow run` unchanged. Nextflow's own options take ONE dash
 (-profile, -resume, -c); pipeline parameters take TWO (--sample_id, --outdir).
+Defaults from .env (e.g. checkm2_db, blast_db) are added unless you pass them; use
+e.g. --checkm2_db false to skip a database for one run.
 
 Examples:
   nosograph assembly flye -profile micromamba \
@@ -64,7 +77,27 @@ Examples:
   nosograph assembly unicycler -profile micromamba \
       --sample_id S02 --long_reads long.fq.gz --read1 R1.fq.gz --read2 R2.fq.gz
   nosograph assembly autocycler,canu,flye -profile micromamba -resume \
-      --sample_id S03 --long_reads reads.fastq.gz --outdir results/S03 --threads 24
+      --sample_id S03 --long_reads reads.fastq.gz --outdir results --threads 24
+EOF
+}
+
+usage_kraken2_classify() {
+    cat <<'EOF'
+Usage: nosograph kraken2-classify [options for nextflow run]
+
+Classifies one sample's long reads against a Kraken2 database to estimate what the
+reads are and to screen for contaminants      -> --pipeline kraken2-classify
+
+Wrapper options:
+  --dry-run    Print the nextflow command instead of running it
+  -h, --help   Show this help
+
+Everything else goes to `nextflow run` unchanged. Needs --sample_id, --long_reads and
+--kraken2_db (or kraken2_db in .env).
+
+Example:
+  nosograph kraken2-classify -profile micromamba \
+      --sample_id S01 --long_reads reads.fastq.gz --kraken2_db /data/k2_standard --outdir results
 EOF
 }
 
@@ -76,6 +109,139 @@ die() {
 is_bacterial_assembler() {
     case " $BACTERIAL_ASSEMBLERS " in *" $1 "*) return 0 ;; esac
     return 1
+}
+
+is_routing_param() {
+    case " $ROUTING_PARAMS " in *" $1 "*) return 0 ;; esac
+    return 1
+}
+
+# Read KEY=VALUE lines from $ENV_FILE into env_keys / env_vals. The file is parsed, never
+# sourced: blank lines and # comments are skipped, an optional `export ` prefix and one
+# pair of surrounding quotes are dropped, and anything else is an error.
+env_keys=()
+env_vals=()
+load_env() {
+    [ -f "$ENV_FILE" ] || return 0
+    local line key val n=0
+    while IFS= read -r line || [ -n "$line" ]; do
+        n=$((n + 1))
+        line="${line%$'\r'}"
+        # Trim surrounding whitespace.
+        line="${line#"${line%%[![:space:]]*}"}"
+        line="${line%"${line##*[![:space:]]}"}"
+        case "$line" in ''|'#'*) continue ;; esac
+        line="${line#export }"
+        case "$line" in
+            *=*) ;;
+            *) die "$ENV_FILE:$n: expected key=value, got '$line'" ;;
+        esac
+        key="${line%%=*}"
+        val="${line#*=}"
+        key="${key%"${key##*[![:space:]]}"}"
+        val="${val#"${val%%[![:space:]]*}"}"
+        case "$key" in
+            ''|[0-9]*|*[!A-Za-z0-9_]*) die "$ENV_FILE:$n: '$key' is not a parameter name" ;;
+        esac
+        if is_routing_param "$key"; then
+            die "$ENV_FILE:$n: '$key' is set by the nosograph subcommand, not .env"
+        fi
+        case "$val" in
+            \"*\") val="${val#\"}"; val="${val%\"}" ;;
+            \'*\') val="${val#\'}"; val="${val%\'}" ;;
+        esac
+        env_keys+=("$key")
+        env_vals+=("$val")
+    done < "$ENV_FILE"
+}
+
+# Run nextflow with the given routing params. Remaining args are the user's options:
+# --dry-run and -h/--help are handled here, routing params are refused, and .env
+# defaults are appended for every parameter the user did not pass.
+run_pipeline() {
+    local usage_fn="$1" what="$2"
+    shift 2
+    local route=()
+    while [ $# -gt 0 ] && [ "$1" != "--" ]; do
+        route+=("$1")
+        shift
+    done
+    [ $# -gt 0 ] && shift   # drop the "--" separator
+
+    local passthrough=() dry_run=0 arg name
+    for arg in "$@"; do
+        case "$arg" in
+            --dry-run) dry_run=1 ;;
+            -h|--help) "$usage_fn"; exit 0 ;;
+            --*)
+                name="${arg#--}"
+                name="${name%%=*}"
+                if is_routing_param "$name"; then
+                    die "don't pass --$name; it is set from '$what'"
+                fi
+                passthrough+=("$arg")
+                ;;
+            *) passthrough+=("$arg") ;;
+        esac
+    done
+
+    load_env
+    # For each .env key: the user's own --key wins. `--key false` (or --key=false) turns
+    # the default off for this run; Nextflow would read "false" as a set value, so that
+    # pair is dropped too. drop[] marks passthrough positions to leave out.
+    local defaults=() drop=() off=() i=0 j n="${#passthrough[@]}" key given
+    while [ "$i" -lt "${#env_keys[@]}" ]; do   # index loops: bash 3.2 + set -u vs empty arrays
+        key="${env_keys[$i]}"
+        given=0
+        j=0
+        while [ "$j" -lt "$n" ]; do
+            case "${passthrough[$j]}" in
+                "--$key=false")
+                    given=1; drop[j]=1 ;;
+                "--$key")
+                    given=1
+                    if [ $((j + 1)) -lt "$n" ] && [ "${passthrough[$((j + 1))]}" = "false" ]; then
+                        drop[j]=1; drop[j + 1]=1
+                    fi ;;
+                "--$key="*)
+                    given=1 ;;
+            esac
+            j=$((j + 1))
+        done
+        [ "$given" -eq 1 ] || defaults+=("--$key" "${env_vals[$i]}")
+        i=$((i + 1))
+    done
+    if [ "${#drop[@]}" -gt 0 ]; then
+        local kept=()
+        j=0
+        while [ "$j" -lt "$n" ]; do
+            if [ "${drop[$j]:-}" = 1 ]; then
+                case "${passthrough[$j]}" in --*) off+=("${passthrough[$j]%%=*}") ;; esac
+            else
+                kept+=("${passthrough[$j]}")
+            fi
+            j=$((j + 1))
+        done
+        passthrough=()
+        [ "${#kept[@]}" -eq 0 ] || passthrough=("${kept[@]}")
+    fi
+    if [ "${#defaults[@]}" -gt 0 ]; then
+        echo "nosograph: defaults from $ENV_FILE: ${defaults[*]}" >&2
+    fi
+    if [ "${#off[@]}" -gt 0 ]; then
+        echo "nosograph: turned off for this run: ${off[*]}" >&2
+    fi
+
+    local cmd=("$NEXTFLOW" run "$PROJECT_DIR" "${route[@]}")
+    [ "${#passthrough[@]}" -eq 0 ] || cmd+=("${passthrough[@]}")
+    [ "${#defaults[@]}" -eq 0 ] || cmd+=("${defaults[@]}")
+
+    if [ "$dry_run" -eq 1 ]; then
+        printf '%q ' "${cmd[@]}"
+        echo
+        exit 0
+    fi
+    exec "${cmd[@]}"
 }
 
 cmd_assembly() {
@@ -116,34 +282,19 @@ cmd_assembly() {
         die "assembly: unknown assembler '$choice'. Use canu, flye, unicycler, or autocycler[,<assemblers>]"
     fi
 
-    # The wrapper owns the routing parameters; refuse duplicates rather than guess.
-    local passthrough=() dry_run=0 arg
-    for arg in "$@"; do
-        case "$arg" in
-            --dry-run) dry_run=1 ;;
-            -h|--help) usage_assembly; exit 0 ;;
-            --pipeline|--pipeline=*|--assembler|--assembler=*|--assemblers|--assemblers=*)
-                die "assembly: don't pass ${arg%%=*}; it is set from '$choice'" ;;
-            *) passthrough+=("$arg") ;;
-        esac
-    done
+    run_pipeline usage_assembly "assembly $choice" "${route[@]}" -- "$@"
+}
 
-    local cmd=("$NEXTFLOW" run "$PROJECT_DIR" "${route[@]}")
-    [ "${#passthrough[@]}" -eq 0 ] || cmd+=("${passthrough[@]}")
-
-    if [ "$dry_run" -eq 1 ]; then
-        printf '%q ' "${cmd[@]}"
-        echo
-        exit 0
-    fi
-    exec "${cmd[@]}"
+cmd_kraken2_classify() {
+    run_pipeline usage_kraken2_classify "kraken2-classify" --pipeline kraken2-classify -- "$@"
 }
 
 [ $# -gt 0 ] || { usage >&2; exit 2; }
 command="$1"
 shift
 case "$command" in
-    assembly) cmd_assembly "$@" ;;
+    assembly)         cmd_assembly "$@" ;;
+    kraken2-classify) cmd_kraken2_classify "$@" ;;
     -h|--help|help) usage ;;
     *) die "unknown command '$command'. Run 'nosograph --help'." ;;
 esac
