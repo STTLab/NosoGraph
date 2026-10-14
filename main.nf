@@ -4,8 +4,7 @@ nextflow.enable.dsl=2
 include { BACTERIAL_ASSEMBLY } from './modules/vendor/bacterial-assembly/main.nf'
 include { AUTOCYCLER }         from './modules/vendor/autocycler/main.nf'
 include { KRAKEN2_CLASSIFY }   from './modules/vendor/kraken2-classify/main.nf'
-include { ASSEMBLY_QC_IDEN }   from './modules/vendor/assembly-qc-iden/main.nf'
-// Individual QC steps, so the autocycler path can run CheckM2/BLAST only when their DB is given.
+// Individual QC steps, so each path runs only the steps it needs (CheckM2/BLAST only with their DB).
 include { QUAST }                 from './modules/vendor/assembly-qc-iden/qc/quast.nf'
 include { CHECKM2 }               from './modules/vendor/assembly-qc-iden/qc/checkm2.nf'
 include { BLAST }                 from './modules/vendor/assembly-qc-iden/iden/blast.nf'
@@ -49,6 +48,22 @@ workflow ASSEMBLY_QC {
 
     emit:
         checkm2
+        blast
+}
+
+// QUAST + BLAST for the bacterial-assembly path, grouped as ASSEMBLY_IDEN:<step>. CheckM2
+// is left out because BACTERIAL_ASSEMBLY already runs it on the same assembly.
+workflow ASSEMBLY_IDEN {
+    take:
+        assembly
+        reads
+        reference
+
+    main:
+        QUAST(assembly, reads, reference)
+        blast = BLAST(assembly).results
+
+    emit:
         blast
 }
 
@@ -121,24 +136,21 @@ workflow {
             (params.assembler == 'flye' && info.exists()) ? info : no_flye_info
         }
 
-        // --- QC + identification enrichment (assembly-qc-iden, vendored & untouched) ---
+        // --- QC + identification enrichment (assembly-qc-iden processes, vendored & untouched) ---
         // Active when --blast_db is set (its presence is the toggle, so plain assembly runs
-        // are never forced to ship a 100GB+ BLAST DB). Runs QUAST/CheckM2/BLAST on the final
-        // assembly; this CheckM2 supersedes the bacterial-assembly QC, and BLAST adds a
-        // per-contig best-hit accession to the KG (Contig.accession). QUAST uses the same
-        // long reads for mapping stats; --reference is optional.
+        // are never forced to ship a 100GB+ BLAST DB). Runs QUAST and BLAST on the final
+        // assembly; BLAST adds a per-contig best-hit accession to the KG (Contig.accession).
+        // QUAST uses the same long reads for mapping stats; --reference is optional.
+        // CheckM2 is not repeated here: BACTERIAL_ASSEMBLY already ran it on the same final
+        // assembly when --checkm2_db is set, and both would publish to checkm2_results/.
+        checkm2_v = BACTERIAL_ASSEMBLY.out.qc.ifEmpty(no_checkm2).first()
         if (params.blast_db) {
-            if (!params.checkm2_db)
-                error "QC+identification enrichment (--blast_db) also requires --checkm2_db"
             qc_iden_nofile = file("${projectDir}/modules/vendor/assembly-qc-iden/assets/NO_FILE")
-            qc_reads_ch = channel.fromPath(params.long_reads, checkIfExists: false)
-            qc_ref_ch   = channel.fromPath(params.reference ?: qc_iden_nofile, checkIfExists: false)
-
-            ASSEMBLY_QC_IDEN(assembly_v, qc_reads_ch, qc_ref_ch)
-            checkm2_v    = ASSEMBLY_QC_IDEN.out.checkm2
-            blast_iden_v = ASSEMBLY_QC_IDEN.out.blast
+            ASSEMBLY_IDEN(assembly_v,
+                          channel.fromPath(params.long_reads, checkIfExists: false),
+                          channel.fromPath(params.reference ?: qc_iden_nofile, checkIfExists: false))
+            blast_iden_v = ASSEMBLY_IDEN.out.blast
         } else {
-            checkm2_v    = BACTERIAL_ASSEMBLY.out.qc.ifEmpty(no_checkm2).first()
             blast_iden_v = channel.value(no_blast_iden)
         }
 

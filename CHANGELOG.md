@@ -43,6 +43,11 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
   bridging mode. Supplying only one of `--read1`/`--read2` is now an error.
 
 ### Fixed
+- **CheckM2 runs once per single-assembler run.** With `--blast_db`, a canu, flye or
+  unicycler run used to run CheckM2 twice on the same assembly, and both copies were
+  published to `checkm2_results/`. Now only the assembly step's CheckM2 runs, and
+  `--blast_db` no longer requires `--checkm2_db`. `versions/checkm2.txt` is no longer
+  written on this path.
 - **Every database folder is bound into the containers.** With more than one of
   `--checkm2_db`, `--blast_db` and `--kraken2_db` set, only the first module's database
   folder was bound under Singularity, so e.g. BLAST could not see its database when CheckM2's
