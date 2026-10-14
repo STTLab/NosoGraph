@@ -46,8 +46,7 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
 - **CheckM2 runs once per single-assembler run.** With `--blast_db`, a canu, flye or
   unicycler run used to run CheckM2 twice on the same assembly, and both copies were
   published to `checkm2_results/`. Now only the assembly step's CheckM2 runs, and
-  `--blast_db` no longer requires `--checkm2_db`. `versions/checkm2.txt` is no longer
-  written on this path.
+  `--blast_db` no longer requires `--checkm2_db`.
 - **Every database folder is bound into the containers.** With more than one of
   `--checkm2_db`, `--blast_db` and `--kraken2_db` set, only the first module's database
   folder was bound under Singularity, so e.g. BLAST could not see its database when CheckM2's
@@ -61,6 +60,9 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
   is stored as a boolean. ([#19](https://github.com/STTLab/NosoGraph/pull/19))
 
 ### Changed
+- **QUAST runs on every single-assembler run.** canu, flye and unicycler runs now get
+  `quast_results/` and `versions/quast.txt` like Autocycler runs, instead of only when
+  `--blast_db` was set. Their QC steps show as `ASSEMBLY_QC:QUAST` / `ASSEMBLY_QC:BLAST`.
 - **All outputs now go under `<outdir>/<sample_id>/`, one folder per run.** Assemblies,
   polishing, QC, BLAST and Kraken2 results used to be written straight into `--outdir`,
   with only `kg/` under `<sample_id>/`. Now an assembly run, with its polishing, QC, BLAST

@@ -35,7 +35,7 @@ cd NosoGraph
 
 ### NosoGraph pipeline
 
-The NosoGraph sequencing pipeline supports hybrid and long-read bacterial genome assembly (Flye, Canu, Unicycler), iterative polishing (Racon, Pilon), and quality assessment (CheckM2). It is implemented in [Nextflow](https://www.nextflow.io/) DSL2 and runs on local machines and HPC clusters (SLURM).
+The NosoGraph sequencing pipeline supports hybrid and long-read bacterial genome assembly (Flye, Canu, Unicycler), iterative polishing (Racon, Pilon), and quality assessment (QUAST, CheckM2). It is implemented in [Nextflow](https://www.nextflow.io/) DSL2 and runs on local machines and HPC clusters (SLURM).
 
 #### Requirements
 
@@ -166,8 +166,8 @@ Hybrid assembly with Flye:
 Every output goes under `results/<sample_id>/`, so several samples can share one `--outdir`.
 An assembly run gets its own folder, `results/<sample_id>/assembly/<run_name>/`, named after
 the assembler unless you set `--run_name`. This run writes to `results/sample_01/assembly/flye/`:
-the assembly in `01_assembly/`, the polished assemblies in `02_polish/`, CheckM2 in
-`checkm2_results/`, and a knowledge-graph CSV bundle in `kg/` (`sample.csv`, `assembly.csv`,
+the assembly in `01_assembly/`, the polished assemblies in `02_polish/`, QUAST in `quast_results/`,
+CheckM2 in `checkm2_results/`, and a knowledge-graph CSV bundle in `kg/` (`sample.csv`, `assembly.csv`,
 `biodata_files.csv`, `contigs.csv`) ready for import into Neo4j (see
 [NosoGraph knowledge graph](#nosograph-knowledge-graph)).
 
@@ -337,10 +337,11 @@ Expected output:
 [PROCESS] BACTERIAL_ASSEMBLY:ASSEMBLY_CANU (1)
 [PROCESS] BACTERIAL_ASSEMBLY:RACON_POLISH (1)
 [PROCESS] BACTERIAL_ASSEMBLY:PILON_POLISH (1)
+[PROCESS] ASSEMBLY_QC:QUAST (1)
 [PROCESS] BACTERIAL_ASSEMBLY:CHECKM2 (1)
 [PROCESS] KG_EXPORT (sample_01)
 
-[SUCCESS] completed=5 failed=0 cached=0
+[SUCCESS] completed=6 failed=0 cached=0
 ```
 
 The `-profile test` flag disables both the container and conda engines so the stub runs locally without any tools installed. Input file paths are not checked for existence in stub mode — any placeholder string works.

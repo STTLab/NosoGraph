@@ -22,24 +22,28 @@ include { KRAKEN2_KG_EXPORT }  from './modules/local/kraken2_kg_export.nf'
 //       --long_reads reads.fastq.gz [--checkm2_db <dmnd>] [--blast_db <db prefix>]
 //   nextflow run main.nf --pipeline kraken2-classify --sample_id S01 \
 //       --long_reads reads.fastq.gz --kraken2_db <kraken2 DB dir>
-// Post-assembly QC for the autocycler path, grouped so its tasks show as ASSEMBLY_QC:<step>.
-// QUAST always runs; CheckM2 and BLAST run only when their DB is supplied, and otherwise
-// emit the same sentinels KG_EXPORT gets on the bacterial-assembly path.
+
 // --run_name becomes a folder name and part of the assembly and contig IDs.
 def checkRunName() {
     if (!(params.run_name ==~ /[A-Za-z0-9._-]+/))
         error "Invalid --run_name '${params.run_name}'. Use letters, digits, '.', '_' or '-'"
 }
 
+// Post-assembly QC for both assembly paths, grouped so its tasks show as ASSEMBLY_QC:<step>.
+// QUAST always runs; BLAST runs only when --blast_db is supplied. CheckM2 runs only when
+// with_checkm2 is true and --checkm2_db is supplied: the bacterial-assembly path passes
+// false because BACTERIAL_ASSEMBLY already runs CheckM2 on the same assembly. Skipped
+// steps emit the sentinels KG_EXPORT expects.
 workflow ASSEMBLY_QC {
     take:
         assembly
         reads
         reference
+        with_checkm2    // boolean
 
     main:
         QUAST(assembly, reads, reference)
-        checkm2 = params.checkm2_db
+        checkm2 = (with_checkm2 && params.checkm2_db)
             ? CHECKM2(assembly).results
             : channel.value(file("${projectDir}/assets/NO_CHECKM2"))
         blast = params.blast_db
@@ -48,22 +52,6 @@ workflow ASSEMBLY_QC {
 
     emit:
         checkm2
-        blast
-}
-
-// QUAST + BLAST for the bacterial-assembly path, grouped as ASSEMBLY_IDEN:<step>. CheckM2
-// is left out because BACTERIAL_ASSEMBLY already runs it on the same assembly.
-workflow ASSEMBLY_IDEN {
-    take:
-        assembly
-        reads
-        reference
-
-    main:
-        QUAST(assembly, reads, reference)
-        blast = BLAST(assembly).results
-
-    emit:
         blast
 }
 
@@ -81,7 +69,8 @@ workflow {
         qc_iden_nofile = file("${projectDir}/modules/vendor/assembly-qc-iden/assets/NO_FILE")
         ASSEMBLY_QC(assembly_v,
                     channel.fromPath(params.long_reads, checkIfExists: false),
-                    channel.fromPath(params.reference ?: qc_iden_nofile, checkIfExists: false))
+                    channel.fromPath(params.reference ?: qc_iden_nofile, checkIfExists: false),
+                    true)
 
         // --- Knowledge-graph export (NosoGraph-owned). No Flye assembly_info here:
         // circularity comes from Autocycler's `circular=` FASTA header tags instead.
@@ -136,23 +125,18 @@ workflow {
             (params.assembler == 'flye' && info.exists()) ? info : no_flye_info
         }
 
-        // --- QC + identification enrichment (assembly-qc-iden processes, vendored & untouched) ---
-        // Active when --blast_db is set (its presence is the toggle, so plain assembly runs
-        // are never forced to ship a 100GB+ BLAST DB). Runs QUAST and BLAST on the final
-        // assembly; BLAST adds a per-contig best-hit accession to the KG (Contig.accession).
-        // QUAST uses the same long reads for mapping stats; --reference is optional.
-        // CheckM2 is not repeated here: BACTERIAL_ASSEMBLY already ran it on the same final
-        // assembly when --checkm2_db is set, and both would publish to checkm2_results/.
-        checkm2_v = BACTERIAL_ASSEMBLY.out.qc.ifEmpty(no_checkm2).first()
-        if (params.blast_db) {
-            qc_iden_nofile = file("${projectDir}/modules/vendor/assembly-qc-iden/assets/NO_FILE")
-            ASSEMBLY_IDEN(assembly_v,
-                          channel.fromPath(params.long_reads, checkIfExists: false),
-                          channel.fromPath(params.reference ?: qc_iden_nofile, checkIfExists: false))
-            blast_iden_v = ASSEMBLY_IDEN.out.blast
-        } else {
-            blast_iden_v = channel.value(no_blast_iden)
-        }
+        // --- Post-assembly QC (assembly-qc-iden processes, vendored & untouched) ---
+        // QUAST always runs on the final assembly, using the long reads for mapping stats
+        // (--reference is optional). BLAST runs when --blast_db is set and adds a per-contig
+        // best-hit accession to the KG (Contig.accession). CheckM2 is not repeated here:
+        // BACTERIAL_ASSEMBLY already ran it on the same final assembly when --checkm2_db is set.
+        qc_iden_nofile = file("${projectDir}/modules/vendor/assembly-qc-iden/assets/NO_FILE")
+        ASSEMBLY_QC(assembly_v,
+                    channel.fromPath(params.long_reads, checkIfExists: false),
+                    channel.fromPath(params.reference ?: qc_iden_nofile, checkIfExists: false),
+                    false)
+        checkm2_v    = BACTERIAL_ASSEMBLY.out.qc.ifEmpty(no_checkm2).first()
+        blast_iden_v = ASSEMBLY_QC.out.blast
 
         KG_EXPORT(assembly_v, flye_info_v, checkm2_v, blast_iden_v)
 
