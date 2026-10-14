@@ -88,19 +88,21 @@ Nextflow's own options keep one dash (`-profile`, `-resume`, `-c`); pipeline par
 
 `nextflow run main.nf --pipeline ...` still works and is what `nosograph` runs underneath.
 
-**Installation defaults (`.env`).** To avoid typing database paths on every run, copy
+**Installation defaults (`.env`).** To avoid typing the profile and database paths on every run, copy
 [`.env.example`](.env.example) to `.env` next to the `nosograph` script (e.g.
 `/opt/NosoGraph/.env`) and set them there:
 
 ```bash
+profile=slurm
 checkm2_db=/data/checkm2_db/CheckM2_database/uniref100.KO.1.dmnd
 blast_db=/data/blast/nt
 kraken2_db=/data/k2_standard
 ```
 
-Each line is a pipeline parameter without its `--`. `nosograph` adds them to every run unless
-the command line sets that parameter, and prints which ones it added. `--<parameter> false`
-turns one off for a single run (e.g. `--blast_db false` skips BLAST). `.env` is gitignored, so
+Each line is a pipeline parameter without its `--`, except `profile`, which sets Nextflow's
+`-profile`. `nosograph` adds them to every run unless the command line sets them, and prints
+which ones it added. A `-profile` on the command line replaces the default profile, and
+`--<parameter> false` turns a parameter off for a single run (e.g. `--blast_db false` skips BLAST). `.env` is gitignored, so
 installation paths stay out of the repository. Only `nosograph` reads it; plain `nextflow run`
 does not.
 

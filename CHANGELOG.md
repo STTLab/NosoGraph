@@ -25,8 +25,9 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
   `nosograph kraken2-classify ...` runs `--pipeline kraken2-classify`.
 - **Installation defaults in `.env`.** A `.env` file next to the `nosograph` script (see
   `.env.example`; gitignored) sets parameters such as `checkm2_db`, `blast_db` and
-  `kraken2_db` for every `nosograph` run. The command line still overrides them, and
-  `--<parameter> false` turns one off for a run. Plain `nextflow run` does not read it.
+  `kraken2_db` for every `nosograph` run, and `profile=` sets the default `-profile`. The
+  command line still overrides them (another `-profile` replaces the default one), and
+  `--<parameter> false` turns a parameter off for a run. Plain `nextflow run` does not read it.
 - **QC and knowledge-graph export for `--pipeline autocycler`.** QUAST always runs
   on the consensus assembly; CheckM2 and BLAST run when `--checkm2_db` /
   `--blast_db` are given (the `assembly-qc-iden` processes, unchanged). The run now

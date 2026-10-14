@@ -46,8 +46,8 @@ Options:
 Any other options are passed straight to `nextflow run`, e.g. -profile, -resume,
 -c my.config, --sample_id, --long_reads, --outdir, --threads.
 
-Installation defaults such as database paths can be set in a .env file next to the
-nosograph script (see .env.example); options on the command line override them.
+Installation defaults such as the -profile and database paths can be set in a .env file
+next to the nosograph script (see .env.example); options on the command line override them.
 EOF
 }
 
@@ -68,8 +68,9 @@ Wrapper options:
 
 Everything else goes to `nextflow run` unchanged. Nextflow's own options take ONE dash
 (-profile, -resume, -c); pipeline parameters take TWO (--sample_id, --outdir).
-Defaults from .env (e.g. checkm2_db, blast_db) are added unless you pass them; use
-e.g. --checkm2_db false to skip a database for one run.
+Defaults from .env (e.g. profile, checkm2_db, blast_db) are added unless you pass them;
+use e.g. --checkm2_db false to skip a database for one run, or another -profile to
+replace the default one.
 
 Each run writes to <outdir>/<sample_id>/assembly/<run_name>/, where --run_name defaults
 to the assembler, so several assemblers can run on one sample into the same --outdir.
@@ -192,12 +193,29 @@ run_pipeline() {
     done
 
     load_env
+    # `profile` in .env is Nextflow's -profile (one dash), not a pipeline parameter. It is
+    # added unless the command line already has -profile.
+    local profile_default=() k=0 a
+    while [ "$k" -lt "${#env_keys[@]}" ]; do
+        if [ "${env_keys[$k]}" = profile ]; then
+            profile_default=(-profile "${env_vals[$k]}")
+            for a in ${passthrough[@]+"${passthrough[@]}"}; do
+                case "$a" in -profile|-profile=*) profile_default=() ;; esac
+            done
+        fi
+        k=$((k + 1))
+    done
+
     # For each .env key: the user's own --key wins. `--key false` (or --key=false) turns
     # the default off for this run; Nextflow would read "false" as a set value, so that
     # pair is dropped too. drop[] marks passthrough positions to leave out.
     local defaults=() drop=() off=() i=0 j n="${#passthrough[@]}" key given
     while [ "$i" -lt "${#env_keys[@]}" ]; do   # index loops: bash 3.2 + set -u vs empty arrays
         key="${env_keys[$i]}"
+        if [ "$key" = profile ]; then
+            i=$((i + 1))
+            continue
+        fi
         given=0
         j=0
         while [ "$j" -lt "$n" ]; do
@@ -231,14 +249,17 @@ run_pipeline() {
         passthrough=()
         [ "${#kept[@]}" -eq 0 ] || passthrough=("${kept[@]}")
     fi
-    if [ "${#defaults[@]}" -gt 0 ]; then
-        echo "nosograph: defaults from $ENV_FILE: ${defaults[*]}" >&2
+    if [ "${#profile_default[@]}" -gt 0 ] || [ "${#defaults[@]}" -gt 0 ]; then
+        echo "nosograph: defaults from $ENV_FILE:" \
+            ${profile_default[@]+"${profile_default[@]}"} ${defaults[@]+"${defaults[@]}"} >&2
     fi
     if [ "${#off[@]}" -gt 0 ]; then
         echo "nosograph: turned off for this run: ${off[*]}" >&2
     fi
 
-    local cmd=("$NEXTFLOW" run "$PROJECT_DIR" "${route[@]}")
+    local cmd=("$NEXTFLOW" run "$PROJECT_DIR")
+    [ "${#profile_default[@]}" -eq 0 ] || cmd+=("${profile_default[@]}")
+    cmd+=("${route[@]}")
     [ "${#passthrough[@]}" -eq 0 ] || cmd+=("${passthrough[@]}")
     [ "${#defaults[@]}" -eq 0 ] || cmd+=("${defaults[@]}")
 
