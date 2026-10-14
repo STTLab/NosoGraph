@@ -14,6 +14,10 @@ carry a suffix: `-demo.N` for demo builds, `-rc.N` for release candidates.
 > migrate them.
 
 ### Added
+- **`nosograph` writes Nextflow's log into the run's output folder**, e.g.
+  `<outdir>/<sample_id>/assembly/flye/nextflow.log` or `<outdir>/<sample_id>/kraken2/nextflow.log`,
+  instead of `.nextflow.log` in the launch directory. Nextflow keeps earlier logs there as
+  `nextflow.log.1`, `.2`, …; `-log <file>` overrides the location.
 - **`--run_name`** names an assembly run's folder, `<outdir>/<sample_id>/assembly/<run_name>/`,
   and its assembly and contig IDs. It defaults to the assembler (`flye`, `canu`,
   `unicycler`, `autocycler`), so runs of different assemblers on one sample sit side by

@@ -85,6 +85,10 @@ To call it from anywhere, link it onto your `PATH`, e.g.
 `ln -s "$PWD/nosograph" ~/.local/bin/nosograph`. Add `--dry-run` to print the `nextflow run`
 command instead of running it, and see `nosograph assembly --help` for more examples.
 Nextflow's own options keep one dash (`-profile`, `-resume`, `-c`); pipeline parameters take two.
+`nosograph` writes Nextflow's log into the run's output folder, e.g.
+`results/<sample_id>/assembly/flye/nextflow.log` (earlier runs' logs are kept as
+`nextflow.log.1`, `.2`, …); `-log <file>` puts it elsewhere. Nextflow's `work/` and `.nextflow/`
+(needed for `-resume`) stay in the directory you launch from.
 
 `nextflow run main.nf --pipeline ...` still works and is what `nosograph` runs underneath.
 

@@ -64,6 +64,7 @@ Usage: nosograph assembly <assembler> [options for nextflow run]
 
 Wrapper options:
   --dry-run    Print the nextflow command instead of running it
+  -log <file>  Nextflow log file (default: nextflow.log in the run's output folder)
   -h, --help   Show this help
 
 Everything else goes to `nextflow run` unchanged. Nextflow's own options take ONE dash
@@ -97,6 +98,7 @@ reads are and to screen for contaminants      -> --pipeline kraken2-classify
 
 Wrapper options:
   --dry-run    Print the nextflow command instead of running it
+  -log <file>  Nextflow log file (default: <outdir>/<sample_id>/kraken2/nextflow.log)
   -h, --help   Show this help
 
 Everything else goes to `nextflow run` unchanged. Needs --sample_id, --long_reads and
@@ -162,6 +164,27 @@ load_env() {
     done < "$ENV_FILE"
 }
 
+# Print the value of --<name> among the remaining arguments (`--name value` or
+# `--name=value`); the first match wins. Returns 1 when it is absent.
+arg_value() {
+    local name="$1" prev="" a
+    shift
+    for a in "$@"; do
+        if [ "$prev" = "--$name" ]; then
+            printf '%s' "$a"
+            return 0
+        fi
+        case "$a" in "--$name="*) printf '%s' "${a#*=}"; return 0 ;; esac
+        prev="$a"
+    done
+    return 1
+}
+
+# Where the run's outputs go, below <outdir>/<sample_id>/: set by each subcommand.
+# "assembly" means assembly/<run_name>, with RUN_DEFAULT when --run_name is not given.
+RUN_KIND=""
+RUN_DEFAULT=""
+
 # Run nextflow with the given routing params. Remaining args are the user's options:
 # --dry-run and -h/--help are handled here, routing params are refused, and .env
 # defaults are appended for every parameter the user did not pass.
@@ -175,9 +198,15 @@ run_pipeline() {
     done
     [ $# -gt 0 ] && shift   # drop the "--" separator
 
-    local passthrough=() dry_run=0 arg name
+    local passthrough=() dry_run=0 arg name log_file="" want_log=0
     for arg in "$@"; do
+        if [ "$want_log" -eq 1 ]; then
+            log_file="$arg"
+            want_log=0
+            continue
+        fi
         case "$arg" in
+            -log) want_log=1 ;;
             --dry-run) dry_run=1 ;;
             -h|--help) "$usage_fn"; exit 0 ;;
             --*)
@@ -257,7 +286,29 @@ run_pipeline() {
         echo "nosograph: turned off for this run: ${off[*]}" >&2
     fi
 
-    local cmd=("$NEXTFLOW" run "$PROJECT_DIR")
+    [ "$want_log" -eq 0 ] || die "-log needs a file name"
+
+    # Write Nextflow's log next to the run's outputs, e.g.
+    # <outdir>/<sample_id>/assembly/flye/nextflow.log (Nextflow keeps the previous ones as
+    # nextflow.log.1, .2, ...), unless -log names a file. Without --sample_id the run fails
+    # anyway, so the log stays in the launch directory.
+    local all=(${passthrough[@]+"${passthrough[@]}"} ${defaults[@]+"${defaults[@]}"})
+    local sid outdir run sub=""
+    if [ -z "$log_file" ] && sid="$(arg_value sample_id ${all[@]+"${all[@]}"})" && [ -n "$sid" ]; then
+        outdir="$(arg_value outdir ${all[@]+"${all[@]}"})" || outdir=results
+        case "$RUN_KIND" in
+            assembly)
+                run="$(arg_value run_name ${all[@]+"${all[@]}"})" || run="$RUN_DEFAULT"
+                case "$run" in ''|*[!A-Za-z0-9._-]*) ;; *) sub="assembly/$run" ;; esac
+                ;;
+            *) sub="$RUN_KIND" ;;
+        esac
+        [ -z "$sub" ] || log_file="$outdir/$sid/$sub/nextflow.log"
+    fi
+
+    local cmd=("$NEXTFLOW")
+    [ -z "$log_file" ] || cmd+=(-log "$log_file")
+    cmd+=(run "$PROJECT_DIR")
     [ "${#profile_default[@]}" -eq 0 ] || cmd+=("${profile_default[@]}")
     cmd+=("${route[@]}")
     [ "${#passthrough[@]}" -eq 0 ] || cmd+=("${passthrough[@]}")
@@ -309,10 +360,13 @@ cmd_assembly() {
         die "assembly: unknown assembler '$choice'. Use canu, flye, unicycler, or autocycler[,<assemblers>]"
     fi
 
+    RUN_KIND=assembly
+    RUN_DEFAULT="${parts[0]}"
     run_pipeline usage_assembly "assembly $choice" "${route[@]}" -- "$@"
 }
 
 cmd_kraken2_classify() {
+    RUN_KIND=kraken2
     run_pipeline usage_kraken2_classify "kraken2-classify" --pipeline kraken2-classify -- "$@"
 }
 
